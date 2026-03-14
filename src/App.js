@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
    CONFIG — Update these before deploying
    ═══════════════════════════════════════════ */
 // Replace with your Google Apps Script web app URL after setup
-const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbx8gBsaupY-8M6YsnXRlK2cX4cgD5aA0itdg73ng_320bOuUkiNlAXs3GgFBZ79Ep48xQ/exec";
+const SHEETS_WEBHOOK = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
 
 // Storage key prefix for localStorage persistence
 const STORAGE_KEY = "xai_study_";
@@ -24,10 +24,10 @@ const serif = "'Source Serif 4', 'Georgia', serif";
 /* ═══════════════════════════════════════════
    GAME ECONOMY
    ═══════════════════════════════════════════ */
-const COLORS = ["red", "green", "blue", "purple", "gold"];
-const COLOR_HEX = { red: "#c44b3f", green: "#5a8a5e", blue: "#4a7c8a", purple: "#7d5e8a", gold: "#c49a2a" };
-const POINTS = { red: 1, green: 2, blue: 4, purple: 7, gold: 10 };
-const START_INV = { red: 4, green: 3, blue: 2, purple: 1, gold: 0 };
+const COLORS = ["green", "yellow", "orange", "pink", "blue"];
+const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink: "#c4627a", blue: "#4a7c8a" };
+const POINTS = { green: 1, yellow: 2, orange: 3, pink: 4, blue: 5 };
+const START_INV = { green: 3, yellow: 3, orange: 2, pink: 1, blue: 1 };
 const GAME_DURATION = 30 * 60;
 const DISRUPTION_TIME = 15 * 60;
 
@@ -47,44 +47,56 @@ const STEPS_PER_MIN = 100;
 
 const SHOPS_BASE = [
   {
-    id: "forge", name: "The Forge", tag: "A", specialty: "gold",
-    desc: "Gold trades",
-    x: 75, y: 15, // position on in-app map (0-100)
-    trades: [{ give: { purple: 2, blue: 1 }, receive: { gold: 1 }, label: "2 Purple + 1 Blue → 1 Gold" }],
-    tradesDisrupted: [{ give: { purple: 3, blue: 2 }, receive: { gold: 1 }, label: "3 Purple + 2 Blue → 1 Gold" }],
-  },
-  {
-    id: "violet", name: "Violet Row", tag: "B", specialty: "purple",
-    desc: "Purple trades",
-    x: 25, y: 30,
-    trades: [{ give: { blue: 2 }, receive: { purple: 1 }, label: "2 Blue → 1 Purple" }],
+    id: "grove", name: "The Grove", tag: "A", specialty: "green",
+    desc: "Basic conversions",
+    x: 75, y: 15,
+    trades: [
+      { give: { green: 2 }, receive: { yellow: 1 }, label: "2 Green → 1 Yellow" },
+      { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
+    ],
     tradesDisrupted: null,
   },
   {
-    id: "well", name: "The Well", tag: "C", specialty: "blue",
+    id: "coral", name: "Coral Corner", tag: "B", specialty: "pink",
+    desc: "Orange and Pink trades",
+    x: 25, y: 30,
+    trades: [
+      { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
+      { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
+    ],
+    tradesDisrupted: null,
+  },
+  {
+    id: "bluebell", name: "The Bluebell", tag: "C", specialty: "blue",
     desc: "Blue trades",
     x: 55, y: 55,
     trades: [
-      { give: { green: 3 }, receive: { blue: 2 }, label: "3 Green → 2 Blue" },
-      { give: { purple: 1 }, receive: { blue: 2 }, label: "1 Purple → 2 Blue" },
+      { give: { pink: 2, orange: 1 }, receive: { blue: 1 }, label: "2 Pink + 1 Orange → 1 Blue" },
+      { give: { blue: 1, green: 1 }, receive: { pink: 2 }, label: "1 Blue + 1 Green → 2 Pink" },
     ],
-    tradesDisrupted: null,
+    tradesDisrupted: [
+      { give: { pink: 3, orange: 1 }, receive: { blue: 1 }, label: "3 Pink + 1 Orange → 1 Blue" },
+      { give: { blue: 1, green: 1 }, receive: { pink: 2 }, label: "1 Blue + 1 Green → 2 Pink" },
+    ],
   },
   {
-    id: "greenmile", name: "Green Mile", tag: "D", specialty: "green",
-    desc: "Green trades",
+    id: "sunset", name: "Sunset Strip", tag: "D", specialty: "yellow",
+    desc: "Shortcut trades",
     x: 15, y: 75,
     trades: [
-      { give: { red: 2 }, receive: { green: 2 }, label: "2 Red → 2 Green" },
-      { give: { blue: 1 }, receive: { green: 3 }, label: "1 Blue → 3 Green" },
+      { give: { yellow: 3 }, receive: { pink: 1 }, label: "3 Yellow → 1 Pink" },
+      { give: { orange: 1, green: 1 }, receive: { yellow: 2 }, label: "1 Orange + 1 Green → 2 Yellow" },
     ],
     tradesDisrupted: null,
   },
   {
-    id: "redmarket", name: "Red Market", tag: "E", specialty: "red",
-    desc: "Red trades",
+    id: "exchange", name: "The Exchange", tag: "E", specialty: "orange",
+    desc: "Wild card trades",
     x: 85, y: 80,
-    trades: [{ give: { green: 1 }, receive: { red: 3 }, label: "1 Green → 3 Red" }],
+    trades: [
+      { give: { blue: 1 }, receive: { orange: 3 }, label: "1 Blue → 3 Orange" },
+      { give: { green: 2, yellow: 2 }, receive: { pink: 1, orange: 1 }, label: "2 Green + 2 Yellow → 1 Pink + 1 Orange" },
+    ],
     tradesDisrupted: null,
   },
 ];
@@ -99,21 +111,21 @@ const SHOPS_BASE = [
    Only need to fill one direction — the lookup works both ways.
    ═══════════════════════════════════════════ */
 const DISTANCES = {
-  "start→forge":     400,
-  "start→violet":    250,
-  "start→well":      300,
-  "start→greenmile":  350,
-  "start→redmarket":  500,
-  "forge→violet":    350,
-  "forge→well":      200,
-  "forge→greenmile":  450,
-  "forge→redmarket":  300,
-  "violet→well":     250,
-  "violet→greenmile": 200,
-  "violet→redmarket": 400,
-  "well→greenmile":   300,
-  "well→redmarket":   250,
-  "greenmile→redmarket": 350,
+  "start→grove":     400,
+  "start→coral":     250,
+  "start→bluebell":  300,
+  "start→sunset":    350,
+  "start→exchange":  500,
+  "grove→coral":     350,
+  "grove→bluebell":  200,
+  "grove→sunset":    450,
+  "grove→exchange":  300,
+  "coral→bluebell":  250,
+  "coral→sunset":    200,
+  "coral→exchange":  400,
+  "bluebell→sunset":  300,
+  "bluebell→exchange": 250,
+  "sunset→exchange":  350,
 };
 
 // Lookup steps between two shops (works in either direction)
@@ -932,8 +944,8 @@ export default function App() {
             <div style={{ ...cardStyle, borderLeft: `4px solid ${T.danger}` }}>
               <div style={{ ...labelStyle, color: T.danger }}>Market Update</div>
               <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
-                <strong>The Forge</strong> has increased its prices. Gold now costs
-                <strong style={{ color: T.danger }}> 3 Purple + 2 Blue</strong> (previously 2 Purple + 1 Blue).
+                <strong>The Bluebell</strong> has increased its prices. Blue now costs
+                <strong style={{ color: T.danger }}> 3 Pink + 1 Orange</strong> (previously 2 Pink + 1 Orange).
               </p>
             </div>
 
@@ -960,9 +972,10 @@ export default function App() {
                 <div style={{ ...cardStyle, borderLeft: `4px solid ${T.warn}` }}>
                   <div style={{ ...labelStyle, color: T.warn }}>Updated AI Suggestion</div>
                   <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
-                    Gold is now significantly more expensive. At your current inventory, pursuing Gold
-                    may not be worth the extra trades and walking time. Focusing on accumulating Purple
-                    (7pts each) is likely more efficient with your remaining time.
+                    Blue is now significantly more expensive at The Bluebell — it costs an extra Pink.
+                    At your current inventory, pushing for Blue may not be worth the extra trades and walking time.
+                    Focusing on accumulating Pink (4pts each) through Coral Corner or Sunset Strip is likely
+                    more efficient with your remaining time.
                   </p>
                   {newRoute.steps.map((step, i) => (
                     <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
@@ -981,9 +994,9 @@ export default function App() {
 
             {cond === "human" && (
               <div style={{ ...cardStyle, borderLeft: `4px solid ${T.cool}` }}>
-                <div style={{ ...labelStyle, color: T.cool }}>Updated Rate — The Forge</div>
+                <div style={{ ...labelStyle, color: T.cool }}>Updated Rate — The Bluebell</div>
                 <p style={{ margin: 0, fontFamily: mono, fontSize: 14, color: T.dark }}>
-                  3 Purple + 2 Blue → 1 Gold (was: 2 Purple + 1 Blue → 1 Gold)
+                  3 Pink + 1 Orange → 1 Blue (was: 2 Pink + 1 Orange → 1 Blue)
                 </p>
                 <p style={{ margin: "10px 0 0", fontSize: 14, color: T.textMuted }}>
                   All other shop rates remain unchanged.
