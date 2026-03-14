@@ -227,68 +227,76 @@ function getUrlPid() {
    raw point gain. Factors in walk time to
    each shop from current position.
    ═══════════════════════════════════════════ */
-function planRoute(inv, shops, disrupted, lastShop, collected) {
+function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec) {
   const routeSteps = [];
   let current = { ...inv };
   let prevShop = lastShop || null;
   const usedPickups = new Set(collected || []);
+  let timeLeft = (timeRemainingSec || GAME_DURATION) / 60; // convert to minutes
+
   for (let i = 0; i < 12; i++) {
+    if (timeLeft <= 1) break; // not enough time for any action
+
     let best = null;
     let bestScore = -Infinity;
     for (const s of shops) {
       const trades = (disrupted && s.tradesDisrupted) ? s.tradesDisrupted : s.trades;
       const pickup = (!usedPickups.has(s.id) && s.freePickup) ? s.freePickup : null;
-      // Calculate bonus from free pickup at this shop
       const pickupBonus = pickup ? Object.entries(pickup).reduce((sum, [c, n]) => c !== "label" ? sum + n * (POINTS[c] || 0) : sum, 0) : 0;
+
+      const steps = stepsBetween(prevShop, s);
+      const walkTime = Math.max(1, steps / STEPS_PER_MIN);
+      const tradeTime = 2;
+
+      // Skip if not enough time to walk there and trade
+      if (walkTime + tradeTime > timeLeft) continue;
 
       for (const trade of trades) {
         if (!canAfford(current, trade.give)) continue;
         let after = doTradeCalc(current, trade);
-        // Apply free pickup on top of trade
         if (pickup) {
           after = { ...after };
           Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
         }
         const gain = totalPoints(after) - totalPoints(current);
         if (gain <= 0) continue;
-        const steps = stepsBetween(prevShop, s);
-        const walkTime = Math.max(1, steps / STEPS_PER_MIN);
-        const tradeTime = 2;
         const ppm = gain / (walkTime + tradeTime);
         if (ppm > bestScore) {
           bestScore = ppm;
-          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), hasPickup: !!pickup };
+          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime, hasPickup: !!pickup };
         }
       }
 
       // Also consider visiting JUST for the free pickup (no trade)
-      if (pickup && pickupBonus > 0) {
+      if (pickup && pickupBonus > 0 && walkTime + 1 <= timeLeft) {
         const after = { ...current };
         Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
-        const steps = stepsBetween(prevShop, s);
-        const walkTime = Math.max(1, steps / STEPS_PER_MIN);
         const ppm = pickupBonus / (walkTime + 1);
         if (ppm > bestScore) {
           bestScore = ppm;
-          best = { shop: s, trade: null, gain: pickupBonus, after, steps, walkTime: Math.round(walkTime), hasPickup: true, pickupOnly: true };
+          best = { shop: s, trade: null, gain: pickupBonus, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + 1, hasPickup: true, pickupOnly: true };
         }
       }
     }
     if (!best) break;
+
+    timeLeft -= best.totalTime;
+    const timeLeftRounded = Math.round(timeLeft);
 
     let reason;
     const stepsText = `~${best.steps} steps`;
     const minsText = `~${best.walkTime} min`;
     const pickupNote = best.hasPickup ? ` Also collect free balls here.` : ``;
     const tradeLabel = best.trade ? best.trade.label : best.shop.freePickup.label;
+    const timeNote = timeLeftRounded <= 5 ? ` (~${timeLeftRounded} min remaining after this.)` : ``;
 
     if (!prevShop) {
-      reason = `Start at ${best.shop.name} (${stepsText} from start). ${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points.${best.trade && best.hasPickup ? pickupNote : ""}`;
+      reason = `Start at ${best.shop.name} (${stepsText} from start). ${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points.${best.trade && best.hasPickup ? pickupNote : ""}${timeNote}`;
     } else {
       reason = `Walk to ${best.shop.name} (${stepsText}, ${minsText} from ${prevShop.name}). ` +
         `${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points. ` +
         (best.walkTime <= 2 ? `Short walk, good value.` : best.gain >= 5 ? `Worth the distance for a high-value trade.` : `Nearby option that keeps you moving.`) +
-        (best.trade && best.hasPickup ? pickupNote : "");
+        (best.trade && best.hasPickup ? pickupNote : "") + timeNote;
     }
 
     routeSteps.push({
@@ -563,10 +571,10 @@ export default function App() {
   // Compute route for AI groups
   const recomputeRoute = useCallback((newInv, fromShop) => {
     if (cond === "blackbox" || cond === "xai") {
-      const plan = planRoute(newInv || inv, SHOPS_BASE, disrupted, fromShop || lastVisitedShop, collectedPickups);
+      const plan = planRoute(newInv || inv, SHOPS_BASE, disrupted, fromShop || lastVisitedShop, collectedPickups, timer);
       setRoute(plan.steps);
     }
-  }, [cond, disrupted, inv, lastVisitedShop, collectedPickups]);
+  }, [cond, disrupted, inv, lastVisitedShop, collectedPickups, timer]);
 
   useEffect(() => {
     if (cond && (cond === "blackbox" || cond === "xai")) {
@@ -716,8 +724,8 @@ export default function App() {
             <hr style={{ border: "none", borderTop: `1px solid ${T.cardBorder}`, margin: "20px 0" }} />
 
             <div style={{ textAlign: "center" }}>
-              <div style={{ ...labelStyle, marginBottom: 12 }}>Participant ID</div>
-              <input value={pid} onChange={(e) => setPid(e.target.value)} placeholder="e.g. P-0042"
+              <div style={{ ...labelStyle, marginBottom: 12 }}>Participant Name</div>
+              <input value={pid} onChange={(e) => setPid(e.target.value)} placeholder="e.g. John"
                 style={{
                   background: "transparent", border: `1.5px solid ${T.cardBorder}`,
                   borderRadius: 2, padding: "12px 16px", color: T.dark,
@@ -997,7 +1005,7 @@ export default function App() {
             </div>
 
             {cond === "blackbox" && (() => {
-              const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups);
+              const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups, timer);
               return (
                 <div style={{ ...cardStyle, borderLeft: `4px solid ${T.accent}` }}>
                   <div style={{ ...labelStyle, color: T.accent }}>Updated AI Directive</div>
@@ -1014,7 +1022,7 @@ export default function App() {
             })()}
 
             {cond === "xai" && (() => {
-              const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups);
+              const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups, timer);
               return (
                 <div style={{ ...cardStyle, borderLeft: `4px solid ${T.warn}` }}>
                   <div style={{ ...labelStyle, color: T.warn }}>Updated AI Suggestion</div>
