@@ -399,16 +399,20 @@ function Timer({ seconds }) {
 function CampusMap({ shops, currentShop, route, onShopClick, disrupted, cond }) {
   return (
     <div style={{
-      ...cardStyle, position: "relative", height: 320, overflow: "hidden",
+      ...cardStyle, position: "relative", height: 350, overflow: "hidden",
       background: T.bgAlt, touchAction: "manipulation",
     }}>
       <div style={labelStyle}>Campus Map</div>
-      {[25, 50, 75].map((p) => (
-        <div key={`h${p}`} style={{ position: "absolute", left: 0, right: 0, top: `${p}%`, height: 1, background: `${T.cardBorder}66` }} />
-      ))}
-      {[25, 50, 75].map((p) => (
-        <div key={`v${p}`} style={{ position: "absolute", top: 0, bottom: 0, left: `${p}%`, width: 1, background: `${T.cardBorder}66` }} />
-      ))}
+      {/* Campus map image — place campus-map.png in the /public folder */}
+      <img
+        src="/campus-map.png"
+        alt="Campus map"
+        style={{
+          position: "absolute", inset: 0, width: "100%", height: "100%",
+          objectFit: "cover", opacity: 0.6, pointerEvents: "none",
+        }}
+        onError={(e) => { e.target.style.display = "none"; }}
+      />
       {route && route.length > 1 && route.map((step, i) => {
         if (i === 0) return null;
         const prev = route[i - 1].shop;
