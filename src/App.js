@@ -1166,6 +1166,18 @@ export default function App() {
           <span style={{ fontSize: 10, color: T.textFaint, fontFamily: mono, letterSpacing: 1 }}>
             XAI TRUST & UNDERSTANDING STUDY — DISSERTATION
           </span>
+          <div style={{ marginTop: 12 }}>
+            <button onClick={() => {
+              if (window.confirm("Are you sure? This will erase all progress and cannot be undone.")) {
+                clearState();
+                window.location.reload();
+              }
+            }} style={{
+              background: "transparent", border: "none",
+              color: T.cardBorder, fontFamily: mono, fontSize: 10,
+              cursor: "pointer", padding: "8px 12px", letterSpacing: 1,
+            }}>RESET</button>
+          </div>
         </div>
       </div>
     </div>
