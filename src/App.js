@@ -361,7 +361,7 @@ function Btn({ children, onClick, disabled, color, full, small }) {
 
 function Inventory({ inv, showPoints, cond }) {
   const pts = totalPoints(inv);
-  const showTotal = showPoints && cond !== "human";
+  const showTotal = showPoints && cond === "xai";
   return (
     <div style={cardStyle}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
@@ -421,7 +421,7 @@ function CampusMap({ shops, currentShop, route, onShopClick, disrupted, cond }) 
           <svg key={i} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
             <line x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${cur.x}%`} y2={`${cur.y}%`}
               stroke={T.accent} strokeWidth={2} strokeDasharray="6,4" opacity={0.5} />
-            {cond !== "human" && (
+            {cond === "xai" && (
               <text x={`${(prev.x + cur.x) / 2}%`} y={`${(prev.y + cur.y) / 2 - 2}%`}
                 fill={T.textMuted} fontSize={10} fontFamily={mono} textAnchor="middle">
                 ~{walkMins(prev, cur)}m
@@ -438,7 +438,7 @@ function CampusMap({ shops, currentShop, route, onShopClick, disrupted, cond }) 
             position: "absolute", left: `${shop.x}%`, top: `${shop.y}%`,
             transform: "translate(-50%, -50%)", cursor: "pointer",
             background: isCurrent ? T.dark : T.card,
-            border: `2px solid ${isDisrupted && cond !== "human" ? T.danger : isCurrent ? T.dark : T.cardBorder}`,
+            border: `2px solid ${isDisrupted && cond === "xai" ? T.danger : isCurrent ? T.dark : T.cardBorder}`,
             borderRadius: 3, padding: "8px 14px",
             fontFamily: mono, fontSize: 13, fontWeight: 700,
             color: isCurrent ? T.bg : T.dark,
@@ -450,7 +450,7 @@ function CampusMap({ shops, currentShop, route, onShopClick, disrupted, cond }) 
             <div style={{ fontSize: 9, fontWeight: 400, color: isCurrent ? T.bgAlt : T.textMuted, whiteSpace: "nowrap" }}>
               {shop.name}
             </div>
-            {isDisrupted && cond !== "human" && <div style={{ fontSize: 8, color: T.danger }}>RATES CHANGED</div>}
+            {isDisrupted && cond === "xai" && <div style={{ fontSize: 8, color: T.danger }}>RATES CHANGED</div>}
           </button>
         );
       })}
@@ -873,8 +873,8 @@ export default function App() {
                 background: `${cond === "blackbox" ? T.accent : T.warn}08`,
               }}>
                 <div style={{ ...labelStyle, color: cond === "blackbox" ? T.accent : T.warn }}>
-                  {cond === "blackbox" ? "Next Directive" : "Next Suggestion"}
-                  <span style={{ marginLeft: 8, color: T.textFaint }}>{route.length} step{route.length !== 1 ? "s" : ""} remaining</span>
+                  {cond === "blackbox" ? "Directive" : "Next Suggestion"}
+                  {cond === "xai" && <span style={{ marginLeft: 8, color: T.textFaint }}>{route.length} step{route.length !== 1 ? "s" : ""} remaining</span>}
                 </div>
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: T.dark }}>
                   Go to <strong>{route[0].shop.name}</strong> — {route[0].trade.label}
@@ -887,7 +887,7 @@ export default function App() {
                     fontFamily: mono, lineHeight: 1.6,
                   }}>↳ {route[0].reason}</div>
                 )}
-                {route.length > 1 && (
+                {cond === "xai" && route.length > 1 && (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.cardBorder}44` }}>
                     <div style={{ fontSize: 11, color: T.textFaint, fontFamily: mono, marginBottom: 4 }}>UPCOMING</div>
                     {route.slice(1).map((step, i) => (
@@ -909,7 +909,7 @@ export default function App() {
             )}
 
             <CampusMap shops={SHOPS_BASE} currentShop={currentShop}
-              route={(cond !== "human" && route) ? route : null}
+              route={(cond === "xai" && route) ? route : null}
               onShopClick={setCurrentShop} disrupted={disrupted} cond={cond} />
 
             {/* Shop trade panel */}
