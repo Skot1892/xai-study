@@ -47,30 +47,36 @@ const STEPS_PER_MIN = 100;
 
 const SHOPS_BASE = [
   {
-    id: "grove", name: "The Grove", tag: "A", specialty: "green",
-    desc: "Green conversion",
+    id: "gallery", name: "Gallery", tag: "A", specialty: "green",
+    desc: "Trading post",
     x: 75, y: 15,
     freePickup: null,
     trades: [
       { give: { green: 3 }, receive: { orange: 1 }, label: "3 Green → 1 Orange" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
     ],
-    tradesDisrupted: null,
+    tradesDisrupted: [
+      { give: { green: 2 }, receive: { orange: 1 }, label: "2 Green → 1 Orange" },
+      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+    ],
   },
   {
-    id: "coral", name: "Coral Corner", tag: "B", specialty: "pink",
-    desc: "Pink trades — collect free Green",
+    id: "montreal", name: "Montreal Building", tag: "B", specialty: "pink",
+    desc: "Trading post — collect free Green",
     x: 25, y: 30,
     freePickup: { green: 2, label: "Collect 2 free Green" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
       { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
     ],
-    tradesDisrupted: null,
+    tradesDisrupted: [
+      { give: { orange: 3 }, receive: { pink: 1 }, label: "3 Orange → 1 Pink" },
+      { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
+    ],
   },
   {
-    id: "bluebell", name: "The Bluebell", tag: "C", specialty: "blue",
-    desc: "Blue trades — collect free Yellow",
+    id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue",
+    desc: "Trading post — collect free Yellow",
     x: 55, y: 55,
     freePickup: { yellow: 1, label: "Collect 1 free Yellow" },
     trades: [
@@ -81,8 +87,8 @@ const SHOPS_BASE = [
     ],
   },
   {
-    id: "sunset", name: "Sunset Strip", tag: "D", specialty: "yellow",
-    desc: "Yellow conversion hub",
+    id: "computing129", name: "Computing 129", tag: "D", specialty: "yellow",
+    desc: "Trading post",
     x: 15, y: 75,
     freePickup: null,
     trades: [
@@ -91,11 +97,16 @@ const SHOPS_BASE = [
       { give: { yellow: 4 }, receive: { pink: 1 }, label: "4 Yellow → 1 Pink" },
       { give: { pink: 1, orange: 1, yellow: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange + 1 Yellow → 1 Blue" },
     ],
-    tradesDisrupted: null,
+    tradesDisrupted: [
+      { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
+      { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
+      { give: { yellow: 3 }, receive: { pink: 1 }, label: "3 Yellow → 1 Pink" },
+      { give: { pink: 1, orange: 2, yellow: 1 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange + 1 Yellow → 1 Blue" },
+    ],
   },
   {
-    id: "exchange", name: "The Exchange", tag: "E", specialty: "orange",
-    desc: "High-value trades",
+    id: "librarypods", name: "Library Pods", tag: "E", specialty: "orange",
+    desc: "Trading post",
     x: 85, y: 80,
     freePickup: null,
     trades: [
@@ -103,7 +114,11 @@ const SHOPS_BASE = [
       { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
       { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
-    tradesDisrupted: null,
+    tradesDisrupted: [
+      { give: { green: 4, yellow: 4 }, receive: { pink: 1, orange: 1 }, label: "4 Green + 4 Yellow → 1 Pink + 1 Orange" },
+      { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
+      { give: { blue: 1 }, receive: { pink: 3, yellow: 1 }, label: "1 Blue → 3 Pink + 1 Yellow" },
+    ],
   },
 ];
 
@@ -117,21 +132,21 @@ const SHOPS_BASE = [
    Only need to fill one direction — the lookup works both ways.
    ═══════════════════════════════════════════ */
 const DISTANCES = {
-  "start→grove":     400,
-  "start→coral":     250,
-  "start→bluebell":  300,
-  "start→sunset":    350,
-  "start→exchange":  500,
-  "grove→coral":     350,
-  "grove→bluebell":  200,
-  "grove→sunset":    450,
-  "grove→exchange":  300,
-  "coral→bluebell":  250,
-  "coral→sunset":    200,
-  "coral→exchange":  400,
-  "bluebell→sunset":  300,
-  "bluebell→exchange": 250,
-  "sunset→exchange":  350,
+  "start→gallery":     400,
+  "start→montreal":     250,
+  "start→starbucks":  300,
+  "start→computing129":    350,
+  "start→librarypods":  500,
+  "gallery→montreal":     350,
+  "gallery→starbucks":  200,
+  "gallery→computing129":    450,
+  "gallery→librarypods":  300,
+  "montreal→starbucks":  250,
+  "montreal→computing129":    200,
+  "montreal→librarypods":  400,
+  "starbucks→computing129":  300,
+  "starbucks→librarypods": 250,
+  "computing129→librarypods":  350,
 };
 
 // Lookup steps between two shops (works in either direction)
@@ -252,19 +267,16 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
       // Skip if not enough time to walk there and trade
       if (walkTime + tradeTime > timeLeft) continue;
 
+      // Evaluate trades (without bundling pickup)
       for (const trade of trades) {
         if (!canAfford(current, trade.give)) continue;
-        let after = doTradeCalc(current, trade);
-        if (pickup) {
-          after = { ...after };
-          Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
-        }
+        const after = doTradeCalc(current, trade);
         const gain = totalPoints(after) - totalPoints(current);
         if (gain <= 0) continue;
         const ppm = gain / (walkTime + tradeTime);
         if (ppm > bestScore) {
           bestScore = ppm;
-          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime, hasPickup: !!pickup };
+          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime };
         }
       }
 
@@ -275,7 +287,7 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
         const ppm = pickupBonus / (walkTime + 1);
         if (ppm > bestScore) {
           bestScore = ppm;
-          best = { shop: s, trade: null, gain: pickupBonus, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + 1, hasPickup: true, pickupOnly: true };
+          best = { shop: s, trade: null, gain: pickupBonus, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + 1, pickupOnly: true };
         }
       }
     }
@@ -287,17 +299,15 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     let reason;
     const stepsText = `~${best.steps} steps`;
     const minsText = `~${best.walkTime} min`;
-    const pickupNote = best.hasPickup ? ` Also collect free balls here.` : ``;
     const tradeLabel = best.trade ? best.trade.label : best.shop.freePickup.label;
     const timeNote = timeLeftRounded <= 5 ? ` (~${timeLeftRounded} min remaining after this.)` : ``;
 
     if (!prevShop) {
-      reason = `Start at ${best.shop.name} (${stepsText} from start). ${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points.${best.trade && best.hasPickup ? pickupNote : ""}${timeNote}`;
+      reason = `Start at ${best.shop.name} (${stepsText} from start). ${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points.${timeNote}`;
     } else {
       reason = `Walk to ${best.shop.name} (${stepsText}, ${minsText} from ${prevShop.name}). ` +
         `${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points. ` +
-        (best.walkTime <= 2 ? `Short walk, good value.` : best.gain >= 5 ? `Worth the distance for a high-value trade.` : `Nearby option that keeps you moving.`) +
-        (best.trade && best.hasPickup ? pickupNote : "") + timeNote;
+        (best.walkTime <= 2 ? `Short walk, good value.` : best.gain >= 5 ? `Worth the distance for a high-value trade.` : `Nearby option that keeps you moving.`) + timeNote;
     }
 
     routeSteps.push({
@@ -308,7 +318,7 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     });
     current = best.after;
     prevShop = best.shop;
-    if (best.hasPickup) usedPickups.add(best.shop.id);
+    if (best.pickupOnly) usedPickups.add(best.shop.id);
   }
   return { steps: routeSteps, finalPoints: totalPoints(current), finalInv: current };
 }
@@ -1002,18 +1012,47 @@ export default function App() {
             </div>
 
             <div style={{ ...cardStyle, borderLeft: `4px solid ${T.danger}` }}>
-              <div style={{ ...labelStyle, color: T.danger }}>Market Update</div>
-              <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
-                <strong>The Bluebell</strong> has increased its prices. Blue now costs
-                <strong style={{ color: T.danger }}> 1 Pink + 3 Orange</strong> (previously 1 Pink + 2 Orange).
-              </p>
+              <div style={{ ...labelStyle, color: T.danger }}>Market Update — Multiple Shops Affected</div>
+              {cond === "xai" ? (
+                <div>
+                  <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
+                    Market conditions have shifted. Trade rates have changed across multiple shops — some are
+                    <strong style={{ color: T.danger }}> worse</strong> and some are
+                    <strong style={{ color: T.cool }}> better</strong>.
+                  </p>
+                  <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 2, color: T.dark }}>
+                    <div><span style={{ color: T.cool }}>▲</span> Gallery: 3G→1O now <strong>2G→1O</strong></div>
+                    <div><span style={{ color: T.danger }}>▼</span> Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
+                    <div><span style={{ color: T.danger }}>▼</span> Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
+                    <div><span style={{ color: T.cool }}>▲</span> Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
+                    <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
+                    <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
+                    <div><span style={{ color: T.cool }}>▲</span> Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
+                    Trade rates have changed at multiple shops.
+                  </p>
+                  <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 2, color: T.dark }}>
+                    <div>Gallery: 3G→1O now <strong>2G→1O</strong></div>
+                    <div>Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
+                    <div>Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
+                    <div>Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
+                    <div>Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
+                    <div>Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
+                    <div>Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {cond === "blackbox" && (() => {
               const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups, timer);
               return (
                 <div style={{ ...cardStyle, borderLeft: `4px solid ${T.accent}` }}>
-                  <div style={{ ...labelStyle, color: T.accent }}>Updated AI Directive</div>
+                  <div style={{ ...labelStyle, color: T.accent }}>Updated Directive</div>
                   {newRoute.steps.map((step, i) => (
                     <div key={i} style={{ fontFamily: mono, fontSize: 14, padding: "5px 0", color: T.dark }}>
                       {i + 1}. {step.shop.name} — {step.trade.label}
@@ -1030,11 +1069,13 @@ export default function App() {
               const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups, timer);
               return (
                 <div style={{ ...cardStyle, borderLeft: `4px solid ${T.warn}` }}>
-                  <div style={{ ...labelStyle, color: T.warn }}>Updated AI Suggestion</div>
+                  <div style={{ ...labelStyle, color: T.warn }}>Updated Strategy</div>
                   <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
-                    Blue is now far more expensive at The Bluebell — it costs 1 Pink + 3 Orange instead of 1 Pink + 2 Orange.
-                    That's a net loss of 3 points per trade instead of a gain. With your remaining time, accumulating Pink
-                    (15pts each) through Coral Corner is a safer strategy than chasing Blue.
+                    Major market shift. Blue is now much more expensive at both Starbucks and Computing 129.
+                    However, Gallery now converts Green cheaper (2G instead of 3G), and Computing 129 offers
+                    a better Pink shortcut (3Y instead of 4Y). Most importantly, breaking Blue at Library Pods
+                    now gives 3 Pink + 1 Yellow — if you hold Blue, trading it down is very profitable.
+                    The optimal strategy has changed significantly.
                   </p>
                   {newRoute.steps.map((step, i) => (
                     <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
@@ -1050,18 +1091,6 @@ export default function App() {
                 </div>
               );
             })()}
-
-            {cond === "human" && (
-              <div style={{ ...cardStyle, borderLeft: `4px solid ${T.cool}` }}>
-                <div style={{ ...labelStyle, color: T.cool }}>Updated Rate — The Bluebell</div>
-                <p style={{ margin: 0, fontFamily: mono, fontSize: 14, color: T.dark }}>
-                  1 Pink + 3 Orange → 1 Blue (was: 1 Pink + 2 Orange → 1 Blue)
-                </p>
-                <p style={{ margin: "10px 0 0", fontSize: 14, color: T.textMuted }}>
-                  All other shop rates remain unchanged.
-                </p>
-              </div>
-            )}
 
             <div style={{ ...labelStyle, marginTop: 20 }}>Quick Trust Check</div>
             <LikertQuestion question="At this point, I trust the process guiding my decisions."
