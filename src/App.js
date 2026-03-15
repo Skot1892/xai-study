@@ -26,7 +26,7 @@ const serif = "'Source Serif 4', 'Georgia', serif";
    ═══════════════════════════════════════════ */
 const COLORS = ["green", "yellow", "orange", "pink", "blue"];
 const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink: "#c4627a", blue: "#4a7c8a" };
-const POINTS = { green: 1, yellow: 2, orange: 5, pink: 12, blue: 30 };
+const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30 };
 const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 1 };
 const GAME_DURATION = 30 * 60;
 const DISRUPTION_TIME = 15 * 60;
@@ -53,6 +53,7 @@ const SHOPS_BASE = [
     freePickup: null,
     trades: [
       { give: { green: 3 }, receive: { orange: 1 }, label: "3 Green → 1 Orange" },
+      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
     ],
     tradesDisrupted: null,
   },
@@ -73,21 +74,21 @@ const SHOPS_BASE = [
     x: 55, y: 55,
     freePickup: { yellow: 1, label: "Collect 1 free Yellow" },
     trades: [
-      { give: { pink: 2, orange: 1 }, receive: { blue: 1 }, label: "2 Pink + 1 Orange → 1 Blue" },
+      { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
     ],
     tradesDisrupted: [
-      { give: { pink: 3, orange: 1 }, receive: { blue: 1 }, label: "3 Pink + 1 Orange → 1 Blue" },
+      { give: { pink: 1, orange: 3 }, receive: { blue: 1 }, label: "1 Pink + 3 Orange → 1 Blue" },
     ],
   },
   {
     id: "sunset", name: "Sunset Strip", tag: "D", specialty: "yellow",
-    desc: "Multi-trade hub",
+    desc: "Yellow conversion hub",
     x: 15, y: 75,
     freePickup: null,
     trades: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
       { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
-      { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
+      { give: { yellow: 4 }, receive: { pink: 1 }, label: "4 Yellow → 1 Pink" },
     ],
     tradesDisrupted: null,
   },
@@ -98,6 +99,7 @@ const SHOPS_BASE = [
     freePickup: null,
     trades: [
       { give: { green: 3, yellow: 3 }, receive: { pink: 1, orange: 1 }, label: "3 Green + 3 Yellow → 1 Pink + 1 Orange" },
+      { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
       { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
     tradesDisrupted: null,
@@ -1002,7 +1004,7 @@ export default function App() {
               <div style={{ ...labelStyle, color: T.danger }}>Market Update</div>
               <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
                 <strong>The Bluebell</strong> has increased its prices. Blue now costs
-                <strong style={{ color: T.danger }}> 3 Pink + 1 Orange</strong> (previously 2 Pink + 1 Orange).
+                <strong style={{ color: T.danger }}> 1 Pink + 3 Orange</strong> (previously 1 Pink + 2 Orange).
               </p>
             </div>
 
@@ -1029,10 +1031,9 @@ export default function App() {
                 <div style={{ ...cardStyle, borderLeft: `4px solid ${T.warn}` }}>
                   <div style={{ ...labelStyle, color: T.warn }}>Updated AI Suggestion</div>
                   <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
-                    Blue is now significantly more expensive at The Bluebell — it costs an extra Pink.
-                    At your current inventory, pushing for Blue may not be worth the extra trades and walking time.
-                    Focusing on accumulating Pink (4pts each) through Coral Corner or Sunset Strip is likely
-                    more efficient with your remaining time.
+                    Blue is now far more expensive at The Bluebell — it costs 1 Pink + 3 Orange instead of 1 Pink + 2 Orange.
+                    That's a net loss of 3 points per trade instead of a gain. With your remaining time, accumulating Pink
+                    (15pts each) through Coral Corner is a safer strategy than chasing Blue.
                   </p>
                   {newRoute.steps.map((step, i) => (
                     <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
@@ -1053,7 +1054,7 @@ export default function App() {
               <div style={{ ...cardStyle, borderLeft: `4px solid ${T.cool}` }}>
                 <div style={{ ...labelStyle, color: T.cool }}>Updated Rate — The Bluebell</div>
                 <p style={{ margin: 0, fontFamily: mono, fontSize: 14, color: T.dark }}>
-                  3 Pink + 1 Orange → 1 Blue (was: 2 Pink + 1 Orange → 1 Blue)
+                  1 Pink + 3 Orange → 1 Blue (was: 1 Pink + 2 Orange → 1 Blue)
                 </p>
                 <p style={{ margin: "10px 0 0", fontSize: 14, color: T.textMuted }}>
                   All other shop rates remain unchanged.
