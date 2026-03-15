@@ -27,7 +27,7 @@ const serif = "'Source Serif 4', 'Georgia', serif";
 const COLORS = ["green", "yellow", "orange", "pink", "blue"];
 const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink: "#c4627a", blue: "#4a7c8a" };
 const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30 };
-const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 1 };
+const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 0 };
 const GAME_DURATION = 30 * 60;
 const DISRUPTION_TIME = 15 * 60;
 
@@ -89,6 +89,7 @@ const SHOPS_BASE = [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
       { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
       { give: { yellow: 4 }, receive: { pink: 1 }, label: "4 Yellow → 1 Pink" },
+      { give: { pink: 1, orange: 1, yellow: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange + 1 Yellow → 1 Blue" },
     ],
     tradesDisrupted: null,
   },
