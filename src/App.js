@@ -923,6 +923,46 @@ export default function App() {
               route={(cond === "xai" && route) ? route : null}
               onShopClick={setCurrentShop} disrupted={disrupted} cond={cond} />
 
+            {/* Rate card — collapsible */}
+            <details style={{
+              ...cardStyle, cursor: "pointer",
+            }}>
+              <summary style={{
+                ...labelStyle, marginBottom: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                Shop Rate Card {disrupted && <Tag color={T.danger}>Updated</Tag>}
+              </summary>
+              <div style={{ marginTop: 12 }}>
+                {SHOPS_BASE.map((shop) => {
+                  const trades = (disrupted && shop.tradesDisrupted) ? shop.tradesDisrupted : shop.trades;
+                  return (
+                    <div key={shop.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{
+                          fontFamily: mono, fontWeight: 700, fontSize: 13, color: T.dark,
+                          width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          border: `1.5px solid ${T.cardBorder}`, borderRadius: 2,
+                        }}>{shop.tag}</span>
+                        <span style={{ fontWeight: 700, color: T.dark, fontSize: 14 }}>{shop.name}</span>
+                        <Ball color={shop.specialty} size={12} />
+                      </div>
+                      {shop.freePickup && (
+                        <div style={{ fontSize: 13, color: T.cool, fontFamily: mono, marginLeft: 32, fontWeight: 600 }}>
+                          ✦ {shop.freePickup.label} (first visit only)
+                        </div>
+                      )}
+                      {trades.map((tr, i) => (
+                        <div key={i} style={{ fontSize: 13, color: T.textMuted, fontFamily: mono, marginLeft: 32 }}>
+                          {tr.label}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+
             {/* Shop trade panel */}
             {currentShop && (
               <div style={{ ...cardStyle, borderTop: `2px solid ${COLOR_HEX[currentShop.specialty]}` }}>
