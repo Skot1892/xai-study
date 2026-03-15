@@ -48,18 +48,17 @@ const STEPS_PER_MIN = 100;
 const SHOPS_BASE = [
   {
     id: "grove", name: "The Grove", tag: "A", specialty: "green",
-    desc: "Basic conversions",
+    desc: "Green conversion",
     x: 75, y: 15,
     freePickup: null,
     trades: [
-      { give: { green: 2 }, receive: { yellow: 1 }, label: "2 Green → 1 Yellow" },
-      { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
+      { give: { green: 3 }, receive: { orange: 1 }, label: "3 Green → 1 Orange" },
     ],
     tradesDisrupted: null,
   },
   {
     id: "coral", name: "Coral Corner", tag: "B", specialty: "pink",
-    desc: "Orange and Pink trades — collect free Green",
+    desc: "Pink trades — collect free Green",
     x: 25, y: 30,
     freePickup: { green: 2, label: "Collect 2 free Green" },
     trades: [
@@ -75,32 +74,31 @@ const SHOPS_BASE = [
     freePickup: { yellow: 1, label: "Collect 1 free Yellow" },
     trades: [
       { give: { pink: 2, orange: 1 }, receive: { blue: 1 }, label: "2 Pink + 1 Orange → 1 Blue" },
-      { give: { blue: 1, green: 1 }, receive: { pink: 2 }, label: "1 Blue + 1 Green → 2 Pink" },
     ],
     tradesDisrupted: [
       { give: { pink: 3, orange: 1 }, receive: { blue: 1 }, label: "3 Pink + 1 Orange → 1 Blue" },
-      { give: { blue: 1, green: 1 }, receive: { pink: 2 }, label: "1 Blue + 1 Green → 2 Pink" },
     ],
   },
   {
     id: "sunset", name: "Sunset Strip", tag: "D", specialty: "yellow",
-    desc: "Shortcut trades",
+    desc: "Multi-trade hub",
     x: 15, y: 75,
     freePickup: null,
     trades: [
-      { give: { yellow: 3 }, receive: { pink: 1 }, label: "3 Yellow → 1 Pink" },
-      { give: { orange: 1, green: 1 }, receive: { yellow: 2 }, label: "1 Orange + 1 Green → 2 Yellow" },
+      { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
+      { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
+      { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
     tradesDisrupted: null,
   },
   {
     id: "exchange", name: "The Exchange", tag: "E", specialty: "orange",
-    desc: "Wild card trades",
+    desc: "High-value trades",
     x: 85, y: 80,
     freePickup: null,
     trades: [
-      { give: { blue: 1 }, receive: { orange: 3 }, label: "1 Blue → 3 Orange" },
-      { give: { green: 2, yellow: 2 }, receive: { pink: 1, orange: 1 }, label: "2 Green + 2 Yellow → 1 Pink + 1 Orange" },
+      { give: { green: 3, yellow: 3 }, receive: { pink: 1, orange: 1 }, label: "3 Green + 3 Yellow → 1 Pink + 1 Orange" },
+      { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
     tradesDisrupted: null,
   },
