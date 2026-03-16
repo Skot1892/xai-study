@@ -24,10 +24,10 @@ const serif = "'Source Serif 4', 'Georgia', serif";
 /* ═══════════════════════════════════════════
    GAME ECONOMY
    ═══════════════════════════════════════════ */
-const COLORS = ["green", "yellow", "orange", "pink", "blue"];
-const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink: "#c4627a", blue: "#4a7c8a" };
-const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30 };
-const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 0 };
+const COLORS = ["green", "yellow", "orange", "pink", "blue", "purple"];
+const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink: "#c4627a", blue: "#4a7c8a", purple: "#7d5e8a" };
+const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30, purple: 90 };
+const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 0, purple: 0 };
 const GAME_DURATION = 30 * 60;
 const DISRUPTION_TIME = 15 * 60;
 
@@ -54,10 +54,12 @@ const SHOPS_BASE = [
     trades: [
       { give: { green: 3 }, receive: { orange: 1 }, label: "3 Green → 1 Orange" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
     tradesDisrupted: [
       { give: { green: 2 }, receive: { orange: 1 }, label: "2 Green → 1 Orange" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
   },
   {
@@ -81,9 +83,11 @@ const SHOPS_BASE = [
     freePickup: { yellow: 2, label: "Collect 2 free Yellow" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
+      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
     ],
     tradesDisrupted: [
       { give: { pink: 1, orange: 3 }, receive: { blue: 1 }, label: "1 Pink + 3 Orange → 1 Blue" },
+      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
     ],
   },
   {
@@ -109,14 +113,12 @@ const SHOPS_BASE = [
     x: 85, y: 80,
     freePickup: null,
     trades: [
-      { give: { green: 3, yellow: 3 }, receive: { pink: 1, orange: 1 }, label: "3 Green + 3 Yellow → 1 Pink + 1 Orange" },
+      { give: { green: 4, yellow: 3 }, receive: { pink: 1, orange: 1 }, label: "4 Green + 3 Yellow → 1 Pink + 1 Orange" },
       { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
-      { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
     tradesDisrupted: [
-      { give: { green: 4, yellow: 4 }, receive: { pink: 1, orange: 1 }, label: "4 Green + 4 Yellow → 1 Pink + 1 Orange" },
+      { give: { green: 5, yellow: 4 }, receive: { pink: 1, orange: 1 }, label: "5 Green + 4 Yellow → 1 Pink + 1 Orange" },
       { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
-      { give: { blue: 1 }, receive: { pink: 3, yellow: 1 }, label: "1 Blue → 3 Pink + 1 Yellow" },
     ],
   },
 ];
@@ -888,8 +890,7 @@ export default function App() {
                       <div><span style={{ color: T.danger }}>▼</span> Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Computing 129: NEW trade — <strong>3Y→1P</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
-                      <div><span style={{ color: T.cool }}>▲</span> Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 4G+3Y→1P+1O now <strong>5G+4Y→1P+1O</strong></div>
                     </div>
                     <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.7, color: T.accentAlt }}>
                       Strategy has shifted significantly. The AI has recalculated your optimal route below.
@@ -906,8 +907,7 @@ export default function App() {
                       <div>Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
                       <div>Computing 129: NEW trade — <strong>3Y→1P</strong></div>
                       <div>Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
-                      <div>Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
-                      <div>Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                      <div>Library Pods: 4G+3Y→1P+1O now <strong>5G+4Y→1P+1O</strong></div>
                     </div>
                   </div>
                 )}
