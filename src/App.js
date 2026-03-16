@@ -485,13 +485,43 @@ function LikertQuestion({ question, value, onChange }) {
 /* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
-const SURVEY_FULL = [
-  "I trusted the decision-making process during the game.",
-  "I understood why trades were being made.",
-  "I felt in control of my resource allocation.",
-  "I am satisfied with the outcome of my trades.",
-  "The trading process felt fair and transparent.",
-  "I felt confident in the decisions made during the game.",
+const LIKERT_QUESTIONS = [
+  { id: "trust", dim: "Trust", text: "I trusted the guidance/process I received during the game." },
+  { id: "understanding", dim: "Understanding", text: "I understood why trades were being suggested/chosen." },
+  { id: "control", dim: "Control", text: "I felt in control of my decisions throughout the game." },
+  { id: "satisfaction", dim: "Satisfaction", text: "I am satisfied with my final score." },
+  { id: "cognitive_load", dim: "Cognitive Load", text: "I found it mentally demanding to decide which trades to make." },
+  { id: "willingness", dim: "Willingness", text: "I would be comfortable relying on a similar system for important decisions in the future." },
+];
+
+const MULTI_CHOICE_QUESTIONS_AI = [
+  { id: "emotion_during", dim: "Emotional", text: "Which best describes how you felt during the game?",
+    options: ["Confident", "Uncertain", "Frustrated", "Calm", "Overwhelmed"], multi: true },
+  { id: "emotion_disruption", dim: "Emotional", text: "How did you feel when the trade rates changed at 15 minutes?",
+    options: ["Stressed", "Curious", "Confused", "Unfazed", "Panicked"], multi: true },
+  { id: "predictability", dim: "Understanding", text: "How well could you predict what the AI would suggest next?",
+    options: ["Very well", "Somewhat", "Not really", "Not at all"], multi: false },
+];
+
+const MULTI_CHOICE_QUESTIONS_HUMAN = [
+  { id: "emotion_during", dim: "Emotional", text: "Which best describes how you felt during the game?",
+    options: ["Confident", "Uncertain", "Frustrated", "Calm", "Overwhelmed"], multi: true },
+  { id: "emotion_disruption", dim: "Emotional", text: "How did you feel when the trade rates changed at 15 minutes?",
+    options: ["Stressed", "Curious", "Confused", "Unfazed", "Panicked"], multi: true },
+  { id: "predictability", dim: "Understanding", text: "How well could you plan your next move?",
+    options: ["Very well", "Somewhat", "Not really", "Not at all"], multi: false },
+];
+
+const FREE_TEXT_QUESTIONS_AI = [
+  { id: "disagree", dim: "Trust + Behaviour", text: "Did you ever disagree with the AI's suggestion? If so, what did you do and why?" },
+  { id: "confusion", dim: "Understanding", text: "Was there any point where you were confused about what to do next? Describe what happened." },
+  { id: "improvement", dim: "Overall", text: "If you could change anything about the guidance you received, what would it be?" },
+];
+
+const FREE_TEXT_QUESTIONS_HUMAN = [
+  { id: "strategy", dim: "Trust + Behaviour", text: "How did you decide which shops to visit and in what order?" },
+  { id: "confusion", dim: "Understanding", text: "Was there any point where you were confused about what to do next? Describe what happened." },
+  { id: "improvement", dim: "Overall", text: "If you could change anything about the information you received (or didn't receive), what would it be?" },
 ];
 
 export default function App() {
@@ -511,7 +541,8 @@ export default function App() {
   const [route, setRoute] = useState(null);
   const [tradeLog, setTradeLog] = useState(() => loadState("tradeLog", []));
   const [finalSurvey, setFinalSurvey] = useState(() => loadState("finalSurvey", {}));
-  const [freeText, setFreeText] = useState(() => loadState("freeText", ""));
+  const [multiChoice, setMultiChoice] = useState(() => loadState("multiChoice", {}));
+  const [freeTexts, setFreeTexts] = useState(() => loadState("freeTexts", {}));
   const [collectedPickups, setCollectedPickups] = useState(() => loadState("collectedPickups", []));
   const [showDisruptionAlert, setShowDisruptionAlert] = useState(false);
   const [msg, setMsg] = useState("");
@@ -529,7 +560,8 @@ export default function App() {
   useEffect(() => { saveState("disrupted", disrupted); }, [disrupted]);
   useEffect(() => { saveState("tradeLog", tradeLog); }, [tradeLog]);
   useEffect(() => { saveState("finalSurvey", finalSurvey); }, [finalSurvey]);
-  useEffect(() => { saveState("freeText", freeText); }, [freeText]);
+  useEffect(() => { saveState("multiChoice", multiChoice); }, [multiChoice]);
+  useEffect(() => { saveState("freeTexts", freeTexts); }, [freeTexts]);
   useEffect(() => { saveState("collectedPickups", collectedPickups); }, [collectedPickups]);
   useEffect(() => { saveState("startedAt", startedAt); }, [startedAt]);
 
@@ -632,20 +664,33 @@ export default function App() {
   }, [inv, cond, timer, disrupted, recomputeRoute, collectedPickups]);
 
   // Build final data payload
-  const buildPayload = useCallback(() => ({
-    participantId: pid, condition: cond,
-    finalScore: totalPoints(inv), finalInventory: inv,
-    startingInventory: START_INV,
-    trades: tradeLog,
-    finalSurvey: Object.fromEntries(
-      Object.entries(finalSurvey).map(([i, v]) => [SURVEY_FULL[i], v])
-    ),
-    freeTextResponse: freeText,
-    totalTrades: tradeLog.length,
-    gameTimeUsed: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : GAME_DURATION - timer,
-    disrupted: true,
-    completedAt: new Date().toISOString(),
-  }), [pid, cond, inv, tradeLog, finalSurvey, freeText, timer, startedAt]);
+  const buildPayload = useCallback(() => {
+    const mcQuestions = cond === "human" ? MULTI_CHOICE_QUESTIONS_HUMAN : MULTI_CHOICE_QUESTIONS_AI;
+    const ftQuestions = cond === "human" ? FREE_TEXT_QUESTIONS_HUMAN : FREE_TEXT_QUESTIONS_AI;
+    return {
+      participantName: pid,
+      condition: cond,
+      finalScore: totalPoints(inv),
+      finalInventory: inv,
+      startingInventory: START_INV,
+      trades: tradeLog,
+      totalTrades: tradeLog.length,
+      tradesFollowedAI: tradeLog.filter(t => t.followedAI === true).length,
+      tradesOverrodeAI: tradeLog.filter(t => t.followedAI === false).length,
+      gameTimeUsed: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : GAME_DURATION - timer,
+      disrupted: true,
+      likertResponses: Object.fromEntries(
+        LIKERT_QUESTIONS.map(q => [q.text, finalSurvey[q.id] || null])
+      ),
+      multiChoiceResponses: Object.fromEntries(
+        mcQuestions.map(q => [q.text, multiChoice[q.id] || null])
+      ),
+      freeTextResponses: Object.fromEntries(
+        ftQuestions.map(q => [q.text, freeTexts[q.id] || ""])
+      ),
+      completedAt: new Date().toISOString(),
+    };
+  }, [pid, cond, inv, tradeLog, finalSurvey, multiChoice, freeTexts, timer, startedAt]);
 
   // Submit handler
   const handleSubmit = useCallback(async () => {
@@ -1095,37 +1140,82 @@ export default function App() {
 
             <Inventory inv={inv} showPoints cond={null} />
 
+            {/* SECTION 1: Likert Scale */}
             <div style={{ ...labelStyle, marginTop: 8 }}>
               Rate each statement (1 = strongly disagree, 7 = strongly agree)
             </div>
 
-            {SURVEY_FULL.map((q, i) => (
-              <LikertQuestion key={i} question={q} value={finalSurvey[i]}
-                onChange={(v) => setFinalSurvey((p) => ({ ...p, [i]: v }))} />
+            {LIKERT_QUESTIONS.map((q) => (
+              <LikertQuestion key={q.id} question={q.text} value={finalSurvey[q.id]}
+                onChange={(v) => setFinalSurvey((p) => ({ ...p, [q.id]: v }))} />
             ))}
 
-            <div style={cardStyle}>
-              <div style={labelStyle}>Free Response</div>
-              <p style={{ margin: "0 0 12px", fontSize: 15, color: T.text }}>
-                {cond !== "human"
-                  ? "Why did you choose to follow or ignore the AI's guidance? What influenced your decision?"
-                  : "How did you decide your route and trades? What was your strategy?"}
-              </p>
-              <textarea value={freeText} onChange={(e) => setFreeText(e.target.value)}
-                placeholder="Type your response here..."
-                style={{
-                  width: "100%", minHeight: 120, background: T.bgAlt, border: `1px solid ${T.cardBorder}`,
-                  borderRadius: 2, color: T.text, fontFamily: serif, fontSize: 15,
-                  padding: 14, resize: "vertical", outline: "none", lineHeight: 1.7,
-                }} />
+            {/* SECTION 2: Multiple Choice */}
+            <div style={{ ...labelStyle, marginTop: 20 }}>
+              Select the option(s) that best apply
             </div>
 
+            {(cond === "human" ? MULTI_CHOICE_QUESTIONS_HUMAN : MULTI_CHOICE_QUESTIONS_AI).map((q) => (
+              <div key={q.id} style={cardStyle}>
+                <p style={{ margin: "0 0 14px", fontSize: 15, lineHeight: 1.6, color: T.text }}>{q.text}</p>
+                {q.multi && <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textFaint, fontFamily: mono }}>Select all that apply</p>}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {q.options.map((opt) => {
+                    const selected = q.multi
+                      ? (multiChoice[q.id] || []).includes(opt)
+                      : multiChoice[q.id] === opt;
+                    return (
+                      <button key={opt} onClick={() => {
+                        if (q.multi) {
+                          setMultiChoice((p) => {
+                            const current = p[q.id] || [];
+                            return { ...p, [q.id]: current.includes(opt) ? current.filter(o => o !== opt) : [...current, opt] };
+                          });
+                        } else {
+                          setMultiChoice((p) => ({ ...p, [q.id]: opt }));
+                        }
+                      }} style={{
+                        background: selected ? T.dark : "transparent",
+                        color: selected ? T.bg : T.text,
+                        border: `1.5px solid ${selected ? T.dark : T.cardBorder}`,
+                        borderRadius: 2, padding: "10px 16px",
+                        fontSize: 14, cursor: "pointer", fontFamily: mono,
+                        transition: "all 0.12s", minHeight: 44,
+                      }}>{opt}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* SECTION 3: Free Text */}
+            <div style={{ ...labelStyle, marginTop: 20 }}>
+              Please answer in your own words
+            </div>
+
+            {(cond === "human" ? FREE_TEXT_QUESTIONS_HUMAN : FREE_TEXT_QUESTIONS_AI).map((q) => (
+              <div key={q.id} style={cardStyle}>
+                <p style={{ margin: "0 0 12px", fontSize: 15, color: T.text, lineHeight: 1.6 }}>{q.text}</p>
+                <textarea value={freeTexts[q.id] || ""} onChange={(e) => setFreeTexts((p) => ({ ...p, [q.id]: e.target.value }))}
+                  placeholder="Type your response here..."
+                  style={{
+                    width: "100%", minHeight: 100, background: T.bgAlt, border: `1px solid ${T.cardBorder}`,
+                    borderRadius: 2, color: T.text, fontFamily: serif, fontSize: 15,
+                    padding: 14, resize: "vertical", outline: "none", lineHeight: 1.7,
+                  }} />
+              </div>
+            ))}
+
             <Btn full onClick={() => {
-              if (Object.keys(finalSurvey).length === SURVEY_FULL.length && freeText.trim()) {
+              const mcQuestions = cond === "human" ? MULTI_CHOICE_QUESTIONS_HUMAN : MULTI_CHOICE_QUESTIONS_AI;
+              const ftQuestions = cond === "human" ? FREE_TEXT_QUESTIONS_HUMAN : FREE_TEXT_QUESTIONS_AI;
+              const likertDone = LIKERT_QUESTIONS.every(q => finalSurvey[q.id]);
+              const mcDone = mcQuestions.every(q => multiChoice[q.id] && (Array.isArray(multiChoice[q.id]) ? multiChoice[q.id].length > 0 : true));
+              const ftDone = ftQuestions.every(q => (freeTexts[q.id] || "").trim());
+              if (likertDone && mcDone && ftDone) {
                 handleSubmit();
-              } else { setMsg("Please complete all questions and the free response."); }
-            }} disabled={Object.keys(finalSurvey).length !== SURVEY_FULL.length || !freeText.trim()}
-              color={T.success}>
+              } else { setMsg("Please complete all questions before submitting."); }
+            }} disabled={false} color={T.success}>
               Submit Results →
             </Btn>
             {msg && phase === "finalSurvey" && (
