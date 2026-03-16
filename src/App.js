@@ -78,7 +78,7 @@ const SHOPS_BASE = [
     id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue",
     desc: "Trading post — collect free Yellow",
     x: 55, y: 55,
-    freePickup: { yellow: 1, label: "Collect 1 free Yellow" },
+    freePickup: { yellow: 2, label: "Collect 2 free Yellow" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
     ],
@@ -94,14 +94,13 @@ const SHOPS_BASE = [
     trades: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
       { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
-      { give: { yellow: 4 }, receive: { pink: 1 }, label: "4 Yellow → 1 Pink" },
-      { give: { pink: 1, orange: 1, yellow: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange + 1 Yellow → 1 Blue" },
+      { give: { pink: 1, orange: 1, yellow: 2 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange + 2 Yellow → 1 Blue" },
     ],
     tradesDisrupted: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
       { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
       { give: { yellow: 3 }, receive: { pink: 1 }, label: "3 Yellow → 1 Pink" },
-      { give: { pink: 1, orange: 2, yellow: 1 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange + 1 Yellow → 1 Blue" },
+      { give: { pink: 1, orange: 2, yellow: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange + 2 Yellow → 1 Blue" },
     ],
   },
   {
@@ -256,12 +255,10 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     let best = null;
     let bestScore = -Infinity;
     for (const s of shops) {
-      // Skip same shop as last step — after doing that trade, recalculation will suggest the next one
+      // Skip same shop as previous step
       if (prevShop && s.id === prevShop.id) continue;
 
       const trades = (disrupted && s.tradesDisrupted) ? s.tradesDisrupted : s.trades;
-      const pickup = (!usedPickups.has(s.id) && s.freePickup) ? s.freePickup : null;
-      const pickupBonus = pickup ? Object.entries(pickup).reduce((sum, [c, n]) => c !== "label" ? sum + n * (POINTS[c] || 0) : sum, 0) : 0;
 
       const steps = stepsBetween(prevShop, s);
       const walkTime = Math.max(1, steps / STEPS_PER_MIN);
@@ -270,7 +267,7 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
       // Skip if not enough time to walk there and trade
       if (walkTime + tradeTime > timeLeft) continue;
 
-      // Evaluate trades (without bundling pickup)
+      // Evaluate trades only — pickups are collected naturally by the player
       for (const trade of trades) {
         if (!canAfford(current, trade.give)) continue;
         const after = doTradeCalc(current, trade);
@@ -283,16 +280,6 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
         }
       }
 
-      // Also consider visiting JUST for the free pickup (no trade)
-      if (pickup && pickupBonus > 0 && walkTime + 1 <= timeLeft) {
-        const after = { ...current };
-        Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
-        const ppm = pickupBonus / (walkTime + 1);
-        if (ppm > bestScore) {
-          bestScore = ppm;
-          best = { shop: s, trade: null, gain: pickupBonus, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + 1, pickupOnly: true };
-        }
-      }
     }
     if (!best) break;
 
@@ -302,26 +289,24 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     let reason;
     const stepsText = `~${best.steps} steps`;
     const minsText = `~${best.walkTime} min`;
-    const tradeLabel = best.trade ? best.trade.label : best.shop.freePickup.label;
     const timeNote = timeLeftRounded <= 5 ? ` (~${timeLeftRounded} min remaining after this.)` : ``;
 
     if (!prevShop) {
-      reason = `Start at ${best.shop.name} (${stepsText} from start). ${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points.${timeNote}`;
+      reason = `Start at ${best.shop.name} (${stepsText} from start). Trade ${best.trade.label} for +${best.gain} points.${timeNote}`;
     } else {
       reason = `Walk to ${best.shop.name} (${stepsText}, ${minsText} from ${prevShop.name}). ` +
-        `${best.pickupOnly ? best.shop.freePickup.label : `Trade ${tradeLabel}`} for +${best.gain} points. ` +
+        `Trade ${best.trade.label} for +${best.gain} points. ` +
         (best.walkTime <= 2 ? `Short walk, good value.` : best.gain >= 5 ? `Worth the distance for a high-value trade.` : `Nearby option that keeps you moving.`) + timeNote;
     }
 
     routeSteps.push({
       shop: best.shop,
-      trade: best.trade || { label: best.shop.freePickup.label, give: {}, receive: {} },
+      trade: best.trade,
       reason,
       pointsAfter: totalPoints(best.after),
     });
     current = best.after;
     prevShop = best.shop;
-    if (best.pickupOnly) usedPickups.add(best.shop.id);
   }
   return { steps: routeSteps, finalPoints: totalPoints(current), finalInv: current };
 }
@@ -901,8 +886,8 @@ export default function App() {
                       <div><span style={{ color: T.cool }}>▲</span> Gallery: 3G→1O now <strong>2G→1O</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
-                      <div><span style={{ color: T.cool }}>▲</span> Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Computing 129: NEW trade — <strong>3Y→1P</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
                     </div>
@@ -919,8 +904,8 @@ export default function App() {
                       <div>Gallery: 3G→1O now <strong>2G→1O</strong></div>
                       <div>Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
                       <div>Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
-                      <div>Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
-                      <div>Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
+                      <div>Computing 129: NEW trade — <strong>3Y→1P</strong></div>
+                      <div>Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
                       <div>Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
                       <div>Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
                     </div>
