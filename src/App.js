@@ -256,6 +256,9 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     let best = null;
     let bestScore = -Infinity;
     for (const s of shops) {
+      // Skip same shop as last step — after doing that trade, recalculation will suggest the next one
+      if (prevShop && s.id === prevShop.id) continue;
+
       const trades = (disrupted && s.tradesDisrupted) ? s.tradesDisrupted : s.trades;
       const pickup = (!usedPickups.has(s.id) && s.freePickup) ? s.freePickup : null;
       const pickupBonus = pickup ? Object.entries(pickup).reduce((sum, [c, n]) => c !== "label" ? sum + n * (POINTS[c] || 0) : sum, 0) : 0;
@@ -520,10 +523,10 @@ export default function App() {
   const [currentShop, setCurrentShop] = useState(null);
   const [route, setRoute] = useState(null);
   const [tradeLog, setTradeLog] = useState(() => loadState("tradeLog", []));
-  const [midSurvey, setMidSurvey] = useState(() => loadState("midSurvey", {}));
   const [finalSurvey, setFinalSurvey] = useState(() => loadState("finalSurvey", {}));
   const [freeText, setFreeText] = useState(() => loadState("freeText", ""));
   const [collectedPickups, setCollectedPickups] = useState(() => loadState("collectedPickups", []));
+  const [showDisruptionAlert, setShowDisruptionAlert] = useState(false);
   const [msg, setMsg] = useState("");
   const [submitStatus, setSubmitStatus] = useState(null); // null | "sending" | "sent" | "error"
   const timerRef = useRef(null);
@@ -538,7 +541,6 @@ export default function App() {
   useEffect(() => { saveState("timer", timer); }, [timer]);
   useEffect(() => { saveState("disrupted", disrupted); }, [disrupted]);
   useEffect(() => { saveState("tradeLog", tradeLog); }, [tradeLog]);
-  useEffect(() => { saveState("midSurvey", midSurvey); }, [midSurvey]);
   useEffect(() => { saveState("finalSurvey", finalSurvey); }, [finalSurvey]);
   useEffect(() => { saveState("freeText", freeText); }, [freeText]);
   useEffect(() => { saveState("collectedPickups", collectedPickups); }, [collectedPickups]);
@@ -575,8 +577,8 @@ export default function App() {
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
     if (elapsed >= DISRUPTION_TIME && !disrupted && (phase === "playing" || phase === "playing2")) {
       setDisrupted(true);
-      setTimerActive(false);
-      setPhase("midSurvey");
+      setShowDisruptionAlert(true);
+      recomputeRoute(inv);
     }
   }, [timer, disrupted, phase, startedAt]);
 
@@ -648,7 +650,6 @@ export default function App() {
     finalScore: totalPoints(inv), finalInventory: inv,
     startingInventory: START_INV,
     trades: tradeLog,
-    midSurvey,
     finalSurvey: Object.fromEntries(
       Object.entries(finalSurvey).map(([i, v]) => [SURVEY_FULL[i], v])
     ),
@@ -657,7 +658,7 @@ export default function App() {
     gameTimeUsed: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : GAME_DURATION - timer,
     disrupted: true,
     completedAt: new Date().toISOString(),
-  }), [pid, cond, inv, tradeLog, midSurvey, finalSurvey, freeText, timer, startedAt]);
+  }), [pid, cond, inv, tradeLog, finalSurvey, freeText, timer, startedAt]);
 
   // Submit handler
   const handleSubmit = useCallback(async () => {
@@ -876,6 +877,58 @@ export default function App() {
               }}>{msg}</div>
             )}
 
+            {/* Disruption alert — dismissible */}
+            {showDisruptionAlert && (
+              <div style={{
+                ...cardStyle, borderLeft: `4px solid ${T.danger}`,
+                background: `${T.danger}08`,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ ...labelStyle, color: T.danger }}>Market Update — Rates Changed</div>
+                  <button onClick={() => setShowDisruptionAlert(false)} style={{
+                    background: "transparent", border: "none", color: T.textFaint,
+                    fontFamily: mono, fontSize: 16, cursor: "pointer", padding: "0 4px", lineHeight: 1,
+                  }}>✕</button>
+                </div>
+                {cond === "xai" ? (
+                  <div>
+                    <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: 1.7 }}>
+                      Market conditions have shifted. Trade rates have changed across multiple shops — some are
+                      <strong style={{ color: T.danger }}> worse</strong> and some are
+                      <strong style={{ color: T.cool }}> better</strong>.
+                    </p>
+                    <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 2, color: T.dark }}>
+                      <div><span style={{ color: T.cool }}>▲</span> Gallery: 3G→1O now <strong>2G→1O</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                    </div>
+                    <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.7, color: T.accentAlt }}>
+                      Strategy has shifted significantly. The AI has recalculated your optimal route below.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ margin: "0 0 8px", fontSize: 14, lineHeight: 1.7 }}>
+                      Trade rates have changed at multiple shops.
+                    </p>
+                    <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 2, color: T.dark }}>
+                      <div>Gallery: 3G→1O now <strong>2G→1O</strong></div>
+                      <div>Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
+                      <div>Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
+                      <div>Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
+                      <div>Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
+                      <div>Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
+                      <div>Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* AI instruction */}
             {cond !== "human" && route && route.length > 0 && (
               <div style={{
@@ -923,47 +976,7 @@ export default function App() {
               route={(cond === "xai" && route) ? route : null}
               onShopClick={setCurrentShop} disrupted={disrupted} cond={cond} />
 
-            {/* Rate card — collapsible */}
-            <details style={{
-              ...cardStyle, cursor: "pointer",
-            }}>
-              <summary style={{
-                ...labelStyle, marginBottom: 0, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                Shop Rate Card {disrupted && <Tag color={T.danger}>Updated</Tag>}
-              </summary>
-              <div style={{ marginTop: 12 }}>
-                {SHOPS_BASE.map((shop) => {
-                  const trades = (disrupted && shop.tradesDisrupted) ? shop.tradesDisrupted : shop.trades;
-                  return (
-                    <div key={shop.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{
-                          fontFamily: mono, fontWeight: 700, fontSize: 13, color: T.dark,
-                          width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          border: `1.5px solid ${T.cardBorder}`, borderRadius: 2,
-                        }}>{shop.tag}</span>
-                        <span style={{ fontWeight: 700, color: T.dark, fontSize: 14 }}>{shop.name}</span>
-                        <Ball color={shop.specialty} size={12} />
-                      </div>
-                      {shop.freePickup && (
-                        <div style={{ fontSize: 13, color: T.cool, fontFamily: mono, marginLeft: 32, fontWeight: 600 }}>
-                          ✦ {shop.freePickup.label} (first visit only)
-                        </div>
-                      )}
-                      {trades.map((tr, i) => (
-                        <div key={i} style={{ fontSize: 13, color: T.textMuted, fontFamily: mono, marginLeft: 32 }}>
-                          {tr.label}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </details>
-
-            {/* Shop trade panel */}
+            {/* Shop trade panel — directly under map */}
             {currentShop && (
               <div style={{ ...cardStyle, borderTop: `2px solid ${COLOR_HEX[currentShop.specialty]}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -1034,6 +1047,48 @@ export default function App() {
               </div>
             )}
 
+            {/* Rate card — collapsible, with dropdown icon */}
+            <details style={{
+              ...cardStyle, cursor: "pointer",
+            }}>
+              <summary style={{
+                ...labelStyle, marginBottom: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+                listStyle: "none", WebkitAppearance: "none",
+              }}>
+                <span style={{ fontSize: 14, transition: "transform 0.2s" }}>▸</span>
+                Shop Rate Card {disrupted && <Tag color={T.danger}>Updated</Tag>}
+              </summary>
+              <div style={{ marginTop: 12 }}>
+                {SHOPS_BASE.map((shop) => {
+                  const trades = (disrupted && shop.tradesDisrupted) ? shop.tradesDisrupted : shop.trades;
+                  return (
+                    <div key={shop.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{
+                          fontFamily: mono, fontWeight: 700, fontSize: 13, color: T.dark,
+                          width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          border: `1.5px solid ${T.cardBorder}`, borderRadius: 2,
+                        }}>{shop.tag}</span>
+                        <span style={{ fontWeight: 700, color: T.dark, fontSize: 14 }}>{shop.name}</span>
+                        <Ball color={shop.specialty} size={12} />
+                      </div>
+                      {shop.freePickup && (
+                        <div style={{ fontSize: 13, color: T.cool, fontFamily: mono, marginLeft: 32, fontWeight: 600 }}>
+                          ✦ {shop.freePickup.label} (first visit only)
+                        </div>
+                      )}
+                      {trades.map((tr, i) => (
+                        <div key={i} style={{ fontSize: 13, color: T.textMuted, fontFamily: mono, marginLeft: 32 }}>
+                          {tr.label}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <button onClick={() => { setTimerActive(false); setPhase("finalSurvey"); }} style={{
                 background: "transparent", border: `1px solid ${T.cardBorder}`,
@@ -1041,113 +1096,6 @@ export default function App() {
                 color: T.textMuted, cursor: "pointer", minHeight: 44,
               }}>End game early →</button>
             </div>
-          </div>
-        )}
-
-        {/* ══════ MID-SURVEY ══════ */}
-        {phase === "midSurvey" && (
-          <div>
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <Tag color={T.danger}>Market Disruption</Tag>
-            </div>
-
-            <div style={{ ...cardStyle, borderLeft: `4px solid ${T.danger}` }}>
-              <div style={{ ...labelStyle, color: T.danger }}>Market Update — Multiple Shops Affected</div>
-              {cond === "xai" ? (
-                <div>
-                  <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
-                    Market conditions have shifted. Trade rates have changed across multiple shops — some are
-                    <strong style={{ color: T.danger }}> worse</strong> and some are
-                    <strong style={{ color: T.cool }}> better</strong>.
-                  </p>
-                  <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 2, color: T.dark }}>
-                    <div><span style={{ color: T.cool }}>▲</span> Gallery: 3G→1O now <strong>2G→1O</strong></div>
-                    <div><span style={{ color: T.danger }}>▼</span> Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
-                    <div><span style={{ color: T.danger }}>▼</span> Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
-                    <div><span style={{ color: T.cool }}>▲</span> Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
-                    <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
-                    <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
-                    <div><span style={{ color: T.cool }}>▲</span> Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
-                    Trade rates have changed at multiple shops.
-                  </p>
-                  <div style={{ fontFamily: mono, fontSize: 13, lineHeight: 2, color: T.dark }}>
-                    <div>Gallery: 3G→1O now <strong>2G→1O</strong></div>
-                    <div>Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
-                    <div>Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
-                    <div>Computing 129: 4Y→1P now <strong>3Y→1P</strong></div>
-                    <div>Computing 129: 1P+1O+1Y→1B now <strong>1P+2O+1Y→1B</strong></div>
-                    <div>Library Pods: 3G+3Y→1P+1O now <strong>4G+4Y→1P+1O</strong></div>
-                    <div>Library Pods: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {cond === "blackbox" && (() => {
-              const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups, timer);
-              return (
-                <div style={{ ...cardStyle, borderLeft: `4px solid ${T.accent}` }}>
-                  <div style={{ ...labelStyle, color: T.accent }}>Updated Directive</div>
-                  {newRoute.steps.map((step, i) => (
-                    <div key={i} style={{ fontFamily: mono, fontSize: 14, padding: "5px 0", color: T.dark }}>
-                      {i + 1}. {step.shop.name} — {step.trade.label}
-                    </div>
-                  ))}
-                  <p style={{ fontSize: 13, color: T.textFaint, fontFamily: mono, margin: "10px 0 0" }}>
-                    No explanation provided. Follow the updated directive.
-                  </p>
-                </div>
-              );
-            })()}
-
-            {cond === "xai" && (() => {
-              const newRoute = planRoute(inv, SHOPS_BASE, true, lastVisitedShop, collectedPickups, timer);
-              return (
-                <div style={{ ...cardStyle, borderLeft: `4px solid ${T.warn}` }}>
-                  <div style={{ ...labelStyle, color: T.warn }}>Updated Strategy</div>
-                  <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.7 }}>
-                    Major market shift. Blue is now much more expensive at both Starbucks and Computing 129.
-                    However, Gallery now converts Green cheaper (2G instead of 3G), and Computing 129 offers
-                    a better Pink shortcut (3Y instead of 4Y). Most importantly, breaking Blue at Library Pods
-                    now gives 3 Pink + 1 Yellow — if you hold Blue, trading it down is very profitable.
-                    The optimal strategy has changed significantly.
-                  </p>
-                  {newRoute.steps.map((step, i) => (
-                    <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${T.cardBorder}44` }}>
-                      <div style={{ fontFamily: mono, fontSize: 14, color: T.dark, fontWeight: 600 }}>
-                        {i + 1}. {step.shop.name} — {step.trade.label}
-                      </div>
-                      <div style={{
-                        marginLeft: 24, marginTop: 4, fontSize: 13, color: T.accentAlt,
-                        fontFamily: mono, lineHeight: 1.6,
-                      }}>↳ {step.reason}</div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            <div style={{ ...labelStyle, marginTop: 20 }}>Quick Trust Check</div>
-            <LikertQuestion question="At this point, I trust the process guiding my decisions."
-              value={midSurvey.trust} onChange={(v) => setMidSurvey((p) => ({ ...p, trust: v }))} />
-            <LikertQuestion question="I understand why my current strategy is what it is."
-              value={midSurvey.understanding} onChange={(v) => setMidSurvey((p) => ({ ...p, understanding: v }))} />
-
-            <Btn full onClick={() => {
-              if (midSurvey.trust && midSurvey.understanding) {
-                recomputeRoute(inv);
-                setPhase("playing2");
-                setTimerActive(true);
-              } else { setMsg("Please answer both questions."); }
-            }} disabled={!midSurvey.trust || !midSurvey.understanding}>
-              Resume Game →
-            </Btn>
-            {msg && <p style={{ textAlign: "center", color: T.accent, fontSize: 13, fontFamily: mono, marginTop: 8 }}>{msg}</p>}
           </div>
         )}
 
