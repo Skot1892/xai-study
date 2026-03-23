@@ -25,7 +25,7 @@ const serif = "'Source Serif 4', 'Georgia', serif";
    ═══════════════════════════════════════════ */
 const COLORS = ["green", "yellow", "orange", "pink", "blue", "purple"];
 const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink: "#c4627a", blue: "#4a7c8a", purple: "#7d5e8a" };
-const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30, purple: 90 };
+const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30, purple: 75 };
 const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 0, purple: 0 };
 const GAME_DURATION = 30 * 60;
 const DISRUPTION_TIME = 12 * 60;
@@ -33,7 +33,7 @@ const DISRUPTION_TIME = 12 * 60;
 /* ═══════════════════════════════════════════
    CAMPUS CONFIGURATION
    ═══════════════════════════════════════════
- */
+*/
 
 // Average steps per minute (normal walking pace ~100 steps/min)
 const STEPS_PER_MIN = 100;
@@ -58,32 +58,32 @@ const SHOPS_BASE = [
   {
     id: "montreal", name: "Gallery Staircase", tag: "B", specialty: "pink", location: "Top of the main staircase",
     desc: "Trading post — collect free Green",
-    x: 18, y: 10,
-    freePickup: { green: 2, label: "+2 free Green on first trade" },
+    x: 10, y: 10,
+    freePickup: { green: 1, label: "+1 free Green on first trade" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { pink: 2, blue: 1 }, receive: { purple: 1 }, label: "2 Pink + 1 Blue → 1 Purple" },
       { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
     ],
     tradesDisrupted: [
       { give: { orange: 3 }, receive: { pink: 1 }, label: "3 Orange → 1 Pink" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
       { give: { pink: 1, green: 1 }, receive: { orange: 3 }, label: "1 Pink + 1 Green → 3 Orange" },
     ],
   },
   {
     id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue", location: null,
     desc: "Trading post — collect free Yellow",
-    x: 88, y: 55,
-    freePickup: { yellow: 2, label: "+2 free Yellow on first trade" },
+    x: 95, y: 55,
+    freePickup: { yellow: 1, label: "+1 free Yellow on first trade" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
-      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
       { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
     tradesDisrupted: [
       { give: { pink: 1, orange: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange → 1 Blue" },
-      { give: { pink: 4, blue: 1 }, receive: { purple: 1 }, label: "4 Pink + 1 Blue → 1 Purple" },
       { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
   },
@@ -173,9 +173,7 @@ function doTradeCalc(inv, trade) {
 }
 
 /* ═══════════════════════════════════════════
-   PERSISTENCE — localStorage wrappers
-   In Claude artifact: these silently no-op.
-   Once deployed: full persistence.
+   PERSISTENCE
    ═══════════════════════════════════════════ */
 function saveState(key, value) {
   try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(value)); } catch (e) { /* no-op in artifact */ }
@@ -196,7 +194,7 @@ function clearState() {
    GOOGLE SHEETS SUBMISSION
    ═══════════════════════════════════════════ */
 async function submitToSheets(data) {
-  if (SHEETS_WEBHOOK === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+  if (SHEETS_WEBHOOK === "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyiD0VchIKy7nZfAFXB5SQ2rQJzl6zCLbqnC3Q74VABqX0TE3gZUrMbw/exec") {
     console.log("Sheets webhook not configured. Data:", data);
     return { ok: false, reason: "not_configured" };
   }
@@ -247,116 +245,114 @@ function getShopPickup(shop, disrupted) {
    each shop from current position.
    ═══════════════════════════════════════════ */
 function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec, tradeHistory) {
-  const routeSteps = [];
-  let current = { ...inv };
-  let prevShop = lastShop || null;
-  const usedPickups = new Set(collected || []);
-  
-  // Pre-populate visited shops and used trades from actual trade history
-  const usedTrades = new Set();
-  const visitedShops = new Set();
-  if (prevShop) visitedShops.add(prevShop.id);
+  const startInv = { ...inv };
+  const initPickups = new Set(collected || []);
+  const initUsedTrades = new Set();
+  const initVisited = new Set();
+  if (lastShop) initVisited.add(lastShop.id);
+
+  // Pre-populate from trade history
   if (tradeHistory && tradeHistory.length > 0) {
     for (const entry of tradeHistory) {
-      // Match shop name to ID
       const shop = shops.find(s => s.name === entry.shop || entry.shop.startsWith(s.name));
       if (shop) {
-        visitedShops.add(shop.id);
-        // Match trade label (strip pickup notes)
+        initVisited.add(shop.id);
         const cleanLabel = entry.trade.split(" + +")[0].split(" +")[0];
-        const matchedTrade = [...shop.trades, ...(shop.tradesDisrupted || [])].find(t => cleanLabel.includes(t.label) || t.label === cleanLabel);
-        if (matchedTrade) {
-          usedTrades.add(`${shop.id}:${matchedTrade.label}`);
-        }
+        const allTrades = [...shop.trades, ...(shop.tradesDisrupted || [])];
+        const matched = allTrades.find(t => cleanLabel.includes(t.label) || t.label === cleanLabel);
+        if (matched) initUsedTrades.add(`${shop.id}:${matched.label}`);
       }
     }
   }
-  
-  let timeLeft = (timeRemainingSec || GAME_DURATION) / 60; // convert to minutes
 
-  for (let i = 0; i < 12; i++) {
-    if (timeLeft <= 1) break; // not enough time for any action
+  const timeLeft = (timeRemainingSec || GAME_DURATION) / 60;
+  let bestScore = 0;
+  let bestPath = [];
 
-    let best = null;
-    let bestScore = -Infinity;
-    const allVisited = shops.every(s => visitedShops.has(s.id));
+  // Brute-force search — typically explores <2M paths in <500ms
+  function search(current, prevShop, usedPickups, usedTrades, visitedShops, path, tl) {
+    const pts = totalPoints(current);
+    if (visitedShops.size === 5 && pts > bestScore) {
+      bestScore = pts;
+      bestPath = [...path];
+    }
+    // Also accept paths that can't visit all 5 but are still best available
+    if (pts > bestScore && path.length >= 3) {
+      bestScore = pts;
+      bestPath = [...path];
+    }
+    if (path.length >= 10 || tl <= 1) return;
+    // Prune: rough upper bound on remaining gains
+    if (pts + (tl * 5) < bestScore) return;
 
     for (const s of shops) {
-      // Skip same shop as previous step
       if (prevShop && s.id === prevShop.id) continue;
-
       const trades = (disrupted && s.tradesDisrupted) ? s.tradesDisrupted : s.trades;
-
       const steps = stepsBetween(prevShop, s);
       const walkTime = Math.max(1, steps / STEPS_PER_MIN);
       const tradeTime = 2;
+      if (walkTime + tradeTime > tl) continue;
 
-      // Skip if not enough time to walk there and trade
-      if (walkTime + tradeTime > timeLeft) continue;
-
-      // Evaluate trades — pickups auto-apply on first trade
       const pickup = (!usedPickups.has(s.id) && getShopPickup(s, disrupted)) ? getShopPickup(s, disrupted) : null;
+
       for (const trade of trades) {
-        // Skip trades already used at this shop
         const tradeKey = `${s.id}:${trade.label}`;
         if (usedTrades.has(tradeKey)) continue;
-
         if (!canAfford(current, trade.give)) continue;
+
         let after = doTradeCalc(current, trade);
-        // Bundle pickup into first trade at this shop
         if (pickup) {
           after = { ...after };
           Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
         }
         const gain = totalPoints(after) - totalPoints(current);
-        if (gain <= 0) continue;
-        let ppm = gain / (walkTime + tradeTime);
+        if (gain < -8) continue;
 
-        // Boost unvisited shops to ensure all 5 get visited
-        if (!allVisited && !visitedShops.has(s.id)) {
-          ppm *= 1.8;
-        }
+        const nv = new Set(visitedShops); nv.add(s.id);
+        const nt = new Set(usedTrades); nt.add(tradeKey);
+        const np = new Set(usedPickups); if (pickup) np.add(s.id);
 
-        if (ppm > bestScore) {
-          bestScore = ppm;
-          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime, hasPickup: !!pickup, tradeKey };
-        }
+        search(after, s, np, nt, nv, [...path, {
+          shop: s, trade, gain, after, hasPickup: !!pickup,
+          steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime,
+        }], tl - (walkTime + tradeTime));
       }
-
     }
-    if (!best) break;
+  }
 
-    timeLeft -= best.totalTime;
-    const timeLeftRounded = Math.round(timeLeft);
+  search(startInv, lastShop, initPickups, initUsedTrades, initVisited, [], timeLeft);
 
-    // Build explanatory reasoning for XAI group
-    const pickupNote = best.hasPickup ? ` You'll also receive bonus balls on your first trade here.` : ``;
+  // Build reasoning for each step in the optimal path
+  const routeSteps = [];
+  let timeRemaining = timeLeft;
+  for (const step of bestPath) {
+    timeRemaining -= step.totalTime;
+    const timeLeftRounded = Math.round(timeRemaining);
+
+    const pickupNote = step.hasPickup ? ` You'll also receive bonus balls on your first trade here.` : ``;
     const timeNote = timeLeftRounded <= 5 ? ` Time is running low — ${timeLeftRounded} min left.` : ``;
 
-    // Determine why this trade was chosen — adapts to disruption state
-    let why;
-    const giveTotal = Object.entries(best.trade.give).reduce((s, [c, n]) => s + n * POINTS[c], 0);
-    const receiveTotal = Object.entries(best.trade.receive).reduce((s, [c, n]) => s + n * POINTS[c], 0);
+    const giveTotal = Object.entries(step.trade.give).reduce((s, [c, n]) => s + n * POINTS[c], 0);
+    const receiveTotal = Object.entries(step.trade.receive).reduce((s, [c, n]) => s + n * POINTS[c], 0);
     const netGain = receiveTotal - giveTotal;
+    const purpleViable = !disrupted;
 
-    // Check if Purple is still viable post-disruption
-    const purpleViable = !disrupted; // pre-disruption Purple is +15, post-disruption it's break-even
-
-    if (best.trade.receive.purple) {
+    let why;
+    if (step.trade.receive.purple) {
       why = `This is the highest-value trade in the game. Converting your accumulated Pink and Blue into Purple is the endgame payoff.`;
-    } else if (best.trade.receive.blue && !best.trade.give.blue) {
+    } else if (step.trade.receive.blue && !step.trade.give.blue) {
       if (purpleViable) {
         why = `Building towards Blue (${POINTS.blue}pts) opens up high-value trades later, including the Purple conversion.`;
       } else {
         why = `Blue is worth ${POINTS.blue}pts — one of the most valuable balls. Since market changes made Purple less viable, stacking Blue is now the best strategy.`;
       }
-    } else if (best.trade.give.blue) {
+    } else if (step.trade.give.blue) {
       if (purpleViable) {
         why = `Breaking Blue into Pink gives you more flexibility — the Pink balls are worth more combined and can be used towards Purple.`;
       } else {
         why = `Since market changes, breaking Blue into Pink is very profitable here. The improved rate gives you significantly more value than holding Blue.`;
       }
-    } else if (best.hasPickup && best.gain > netGain) {
+    } else if (step.hasPickup && step.gain > netGain) {
       why = `The first-trade bonus here adds extra balls, making this trade worth more than it appears on paper.`;
     } else if (netGain >= 7) {
       why = `This is a high-value conversion — you gain +${netGain} points from the trade itself.`;
@@ -368,21 +364,16 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec,
       why = `A small but positive trade that keeps building towards bigger conversions.`;
     }
 
-    const reason = `${best.shop.name} — ${best.trade.label} (+${best.gain}pts). ${why}${pickupNote}${timeNote}`;
-
     routeSteps.push({
-      shop: best.shop,
-      trade: best.trade,
-      reason,
-      pointsAfter: totalPoints(best.after),
+      shop: step.shop,
+      trade: step.trade,
+      reason: `${step.shop.name} — ${step.trade.label} (+${step.gain}pts). ${why}${pickupNote}${timeNote}`,
+      pointsAfter: totalPoints(step.after),
     });
-    current = best.after;
-    prevShop = best.shop;
-    visitedShops.add(best.shop.id);
-    usedTrades.add(best.tradeKey);
-    if (best.hasPickup) usedPickups.add(best.shop.id);
   }
-  return { steps: routeSteps, finalPoints: totalPoints(current), finalInv: current };
+
+  const finalInv = bestPath.length > 0 ? bestPath[bestPath.length - 1].after : startInv;
+  return { steps: routeSteps, finalPoints: totalPoints(finalInv), finalInv };
 }
 
 /* ═══════════════════════════════════════════
@@ -1012,7 +1003,7 @@ export default function App() {
                       <div><span style={{ color: T.danger }}>▼</span> Gallery Staircase: 2O→1P now <strong>3O→1P</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Gallery Staircase: 1P+1G→2O now <strong>1P+1G→3O</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Starbucks: 1P+2O→1B now <strong>1P+1O→1B</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Starbucks: 3P+1B→1Pu now <strong>4P+1B→1Pu</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Starbucks: 2P+1B→1Pu now <strong>3P+1B→1Pu</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Computing 129: 3Y+1G→1P now <strong>2Y+1G→1P</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Library Pods: 4G+3Y→1P+1O now <strong>3G+2Y→1P+1O</strong></div>
@@ -1034,7 +1025,7 @@ export default function App() {
                       <div>Gallery Staircase: 2O→1P now <strong>3O→1P</strong></div>
                       <div>Gallery Staircase: 1P+1G→2O now <strong>1P+1G→3O</strong></div>
                       <div>Starbucks: 1P+2O→1B now <strong>1P+1O→1B</strong></div>
-                      <div>Starbucks: 3P+1B→1Pu now <strong>4P+1B→1Pu</strong></div>
+                      <div>Starbucks: 2P+1B→1Pu now <strong>3P+1B→1Pu</strong></div>
                       <div>Computing 129: 3Y+1G→1P now <strong>2Y+1G→1P</strong></div>
                       <div>Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
                       <div>Library Pods: 4G+3Y→1P+1O now <strong>3G+2Y→1P+1O</strong></div>
