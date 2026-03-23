@@ -57,9 +57,9 @@ const SHOPS_BASE = [
   },
   {
     id: "montreal", name: "Gallery Staircase", tag: "B", specialty: "pink", location: "Top of the main staircase",
-    desc: "Trading post — collect free Green",
+    desc: "Trading post",
     x: 18, y: 10,
-    freePickup: { green: 1, label: "+1 free Green on first trade" },
+    freePickup: { green: 2, label: "+2 free Green on first trade" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
@@ -73,25 +73,25 @@ const SHOPS_BASE = [
   },
   {
     id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue", location: null,
-    desc: "Trading post — collect free Yellow",
+    desc: "Trading post",
     x: 88, y: 55,
-    freePickup: { yellow: 1, label: "+1 free Yellow on first trade" },
+    freePickup: null,
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
-      { give: { pink: 2, blue: 1 }, receive: { purple: 1 }, label: "2 Pink + 1 Blue → 1 Purple" },      
+      { give: { pink: 2, blue: 1 }, receive: { purple: 1 }, label: "2 Pink + 1 Blue → 1 Purple" },
       { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
     tradesDisrupted: [
       { give: { pink: 1, orange: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange → 1 Blue" },
-      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },      
+      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
       { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
   },
   {
     id: "computing129", name: "Computing 129", tag: "D", specialty: "yellow", location: null,
-    desc: "Trading post — collect free Green",
+    desc: "Trading post",
     x: 60, y: 75,
-    freePickup: { green: 1, label: "+1 free Green on first trade" },
+    freePickup: null,
     trades: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
       { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
@@ -173,7 +173,7 @@ function doTradeCalc(inv, trade) {
 }
 
 /* ═══════════════════════════════════════════
-   PERSISTENCE
+   PERSISTENCE — localStorage wrappers
    ═══════════════════════════════════════════ */
 function saveState(key, value) {
   try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(value)); } catch (e) { /* no-op in artifact */ }
@@ -244,56 +244,34 @@ function getShopPickup(shop, disrupted) {
    raw point gain. Factors in walk time to
    each shop from current position.
    ═══════════════════════════════════════════ */
-function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec, tradeHistory) {
+function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec, usedTradesSet) {
   const startInv = { ...inv };
   const initPickups = new Set(collected || []);
-  const initUsedTrades = new Set();
-  const initVisited = new Set();
-  if (lastShop) initVisited.add(lastShop.id);
-
-  // Pre-populate from trade history
-  if (tradeHistory && tradeHistory.length > 0) {
-    for (const entry of tradeHistory) {
-      const shop = shops.find(s => s.name === entry.shop || entry.shop.startsWith(s.name));
-      if (shop) {
-        initVisited.add(shop.id);
-        const cleanLabel = entry.trade.split(" + +")[0].split(" +")[0];
-        const allTrades = [...shop.trades, ...(shop.tradesDisrupted || [])];
-        const matched = allTrades.find(t => cleanLabel.includes(t.label) || t.label === cleanLabel);
-        if (matched) initUsedTrades.add(`${shop.id}:${matched.label}`);
-      }
-    }
-  }
-
+  const initUsedTrades = new Set(usedTradesSet || []);
   const timeLeft = (timeRemainingSec || GAME_DURATION) / 60;
-  let bestScore = 0;
+
+  let bestScore = totalPoints(startInv);
   let bestPath = [];
 
-  // Brute-force search — typically explores <2M paths in <500ms
-  function search(current, prevShop, usedPickups, usedTrades, visitedShops, path, tl) {
+  // Brute-force search (~0.4M paths, <200ms)
+  function search(current, prevShop, pickups, usedTrades, path, tl) {
     const pts = totalPoints(current);
-    if (visitedShops.size === 5 && pts > bestScore) {
-      bestScore = pts;
-      bestPath = [...path];
-    }
-    // Also accept paths that can't visit all 5 but are still best available
-    if (pts > bestScore && path.length >= 3) {
+    if (pts > bestScore) {
       bestScore = pts;
       bestPath = [...path];
     }
     if (path.length >= 10 || tl <= 1) return;
-    // Prune: rough upper bound on remaining gains
-    if (pts + (tl * 5) < bestScore) return;
+    if (pts + (tl * 6) < bestScore) return; // prune
 
     for (const s of shops) {
+      // Only constraint: no consecutive same shop
       if (prevShop && s.id === prevShop.id) continue;
-      const trades = (disrupted && s.tradesDisrupted) ? s.tradesDisrupted : s.trades;
-      const steps = stepsBetween(prevShop, s);
-      const walkTime = Math.max(1, steps / STEPS_PER_MIN);
-      const tradeTime = 2;
-      if (walkTime + tradeTime > tl) continue;
 
-      const pickup = (!usedPickups.has(s.id) && getShopPickup(s, disrupted)) ? getShopPickup(s, disrupted) : null;
+      const trades = (disrupted && s.tradesDisrupted) ? s.tradesDisrupted : s.trades;
+      const walkTime = Math.max(1, stepsBetween(prevShop, s) / STEPS_PER_MIN);
+      if (walkTime + 2 > tl) continue;
+
+      const pk = (!pickups.has(s.id) && getShopPickup(s, disrupted)) ? getShopPickup(s, disrupted) : null;
 
       for (const trade of trades) {
         const tradeKey = `${s.id}:${trade.label}`;
@@ -301,67 +279,62 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec,
         if (!canAfford(current, trade.give)) continue;
 
         let after = doTradeCalc(current, trade);
-        if (pickup) {
+        if (pk) {
           after = { ...after };
-          Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
+          Object.entries(pk).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
         }
         const gain = totalPoints(after) - totalPoints(current);
         if (gain < -8) continue;
 
-        const nv = new Set(visitedShops); nv.add(s.id);
         const nt = new Set(usedTrades); nt.add(tradeKey);
-        const np = new Set(usedPickups); if (pickup) np.add(s.id);
+        const np = new Set(pickups); if (pk) np.add(s.id);
 
-        search(after, s, np, nt, nv, [...path, {
-          shop: s, trade, gain, after, hasPickup: !!pickup,
-          steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime,
-        }], tl - (walkTime + tradeTime));
+        search(after, s, np, nt, [...path, {
+          shop: s, trade, gain, after, hasPickup: !!pk,
+          totalTime: walkTime + 2,
+        }], tl - (walkTime + 2));
       }
     }
   }
 
-  search(startInv, lastShop, initPickups, initUsedTrades, initVisited, [], timeLeft);
+  search(startInv, lastShop, initPickups, initUsedTrades, [], timeLeft);
 
-  // Build reasoning for each step in the optimal path
+  // Build XAI reasoning for each step
   const routeSteps = [];
   let timeRemaining = timeLeft;
+  const purpleViable = !disrupted;
+
   for (const step of bestPath) {
     timeRemaining -= step.totalTime;
     const timeLeftRounded = Math.round(timeRemaining);
-
     const pickupNote = step.hasPickup ? ` You'll also receive bonus balls on your first trade here.` : ``;
     const timeNote = timeLeftRounded <= 5 ? ` Time is running low — ${timeLeftRounded} min left.` : ``;
 
     const giveTotal = Object.entries(step.trade.give).reduce((s, [c, n]) => s + n * POINTS[c], 0);
     const receiveTotal = Object.entries(step.trade.receive).reduce((s, [c, n]) => s + n * POINTS[c], 0);
     const netGain = receiveTotal - giveTotal;
-    const purpleViable = !disrupted;
 
     let why;
     if (step.trade.receive.purple) {
-      why = `This is the highest-value trade in the game. Converting your accumulated Pink and Blue into Purple is the endgame payoff.`;
+      why = `This is the highest-value trade in the game. Converting your Pink and Blue into Purple is the endgame payoff.`;
     } else if (step.trade.receive.blue && !step.trade.give.blue) {
-      if (purpleViable) {
-        why = `Building towards Blue (${POINTS.blue}pts) opens up high-value trades later, including the Purple conversion.`;
-      } else {
-        why = `Blue is worth ${POINTS.blue}pts — one of the most valuable balls. Since market changes made Purple less viable, stacking Blue is now the best strategy.`;
-      }
+      why = purpleViable
+        ? `Building towards Blue (${POINTS.blue}pts) opens up the Purple conversion later.`
+        : `Blue is worth ${POINTS.blue}pts. Since market changes made Purple less viable, stacking Blue is now the best strategy.`;
     } else if (step.trade.give.blue) {
-      if (purpleViable) {
-        why = `Breaking Blue into Pink gives you more flexibility — the Pink balls are worth more combined and can be used towards Purple.`;
-      } else {
-        why = `Since market changes, breaking Blue into Pink is very profitable here. The improved rate gives you significantly more value than holding Blue.`;
-      }
+      why = purpleViable
+        ? `Breaking Blue into Pink gives you flexibility — the Pink can be used towards Purple.`
+        : `Since market changes, breaking Blue into Pink is very profitable at the improved rate.`;
     } else if (step.hasPickup && step.gain > netGain) {
-      why = `The first-trade bonus here adds extra balls, making this trade worth more than it appears on paper.`;
+      why = `The first-trade bonus here adds extra balls, making this trade worth more than it appears.`;
     } else if (netGain >= 7) {
-      why = `This is a high-value conversion — you gain +${netGain} points from the trade itself.`;
+      why = `High-value conversion — you gain +${netGain} points from the trade itself.`;
     } else if (netGain >= 3) {
-      why = `A solid trade that moves your resources up the value chain efficiently.`;
+      why = `A solid trade that moves your resources up the value chain.`;
     } else if (netGain <= 0) {
-      why = `This trade looks neutral, but it converts your resources into colours needed for a more valuable trade at the next stop.`;
+      why = `This converts your resources into colours needed for a more valuable trade next.`;
     } else {
-      why = `A small but positive trade that keeps building towards bigger conversions.`;
+      why = `A small positive trade that builds towards bigger conversions.`;
     }
 
     routeSteps.push({
@@ -613,6 +586,7 @@ export default function App() {
   const [multiChoice, setMultiChoice] = useState(() => loadState("multiChoice", {}));
   const [freeTexts, setFreeTexts] = useState(() => loadState("freeTexts", {}));
   const [collectedPickups, setCollectedPickups] = useState(() => loadState("collectedPickups", []));
+  const [usedTrades, setUsedTrades] = useState(() => loadState("usedTrades", []));
   const [showDisruptionAlert, setShowDisruptionAlert] = useState(false);
   const [msg, setMsg] = useState("");
   const [submitStatus, setSubmitStatus] = useState(null);
@@ -638,6 +612,7 @@ export default function App() {
   useEffect(() => { saveState("multiChoice", multiChoice); }, [multiChoice]);
   useEffect(() => { saveState("freeTexts", freeTexts); }, [freeTexts]);
   useEffect(() => { saveState("collectedPickups", collectedPickups); }, [collectedPickups]);
+  useEffect(() => { saveState("usedTrades", usedTrades); }, [usedTrades]);
   useEffect(() => { saveState("startedAt", startedAt); }, [startedAt]);
 
   // On mount: if we have a startedAt and are in a playing phase, recalculate timer
@@ -680,12 +655,12 @@ export default function App() {
   const [lastVisitedShop, setLastVisitedShop] = useState(null);
 
   // Compute route for AI groups
-  const recomputeRoute = useCallback((newInv, fromShop, updatedTradeLog) => {
+  const recomputeRoute = useCallback((newInv, fromShop, updatedUsedTrades) => {
     if (cond === "blackbox" || cond === "xai") {
-      const plan = planRoute(newInv || inv, SHOPS_BASE, disrupted, fromShop || lastVisitedShop, collectedPickups, timer, updatedTradeLog || tradeLog);
+      const plan = planRoute(newInv || inv, SHOPS_BASE, disrupted, fromShop || lastVisitedShop, collectedPickups, timer, new Set(updatedUsedTrades || usedTrades));
       setRoute(plan.steps);
     }
-  }, [cond, disrupted, inv, lastVisitedShop, collectedPickups, timer, tradeLog]);
+  }, [cond, disrupted, inv, lastVisitedShop, collectedPickups, timer, usedTrades]);
 
   useEffect(() => {
     if (cond && (cond === "blackbox" || cond === "xai")) {
@@ -722,14 +697,17 @@ export default function App() {
     setInv(ni);
     const updatedLog = [...tradeLog, entry];
     setTradeLog(updatedLog);
+    const tradeKey = `${shop.id}:${trade.label}`;
+    const updatedUsedTrades = [...usedTrades, tradeKey];
+    setUsedTrades(updatedUsedTrades);
     setLastVisitedShop(shop);
     setMsg(`Traded at ${shop.name}: ${trade.label}${pickupNote}`);
     setCurrentShop(null);
     setTradeFeedback(true);
     setTimeout(() => setTradeFeedback(false), 800);
     scrollToTop();
-    recomputeRoute(ni, shop, updatedLog);
-  }, [inv, cond, route, timer, disrupted, recomputeRoute, collectedPickups]);
+    recomputeRoute(ni, shop, updatedUsedTrades);
+  }, [inv, cond, route, timer, disrupted, recomputeRoute, collectedPickups, usedTrades, tradeLog]);
 
   // Build final data payload
   const buildPayload = useCallback(() => {
