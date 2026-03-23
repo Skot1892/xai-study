@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
    CONFIG — Update these before deploying
    ═══════════════════════════════════════════ */
 // Replace with your Google Apps Script web app URL after setup
-const SHEETS_WEBHOOK = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyiD0VchIKy7nZfAFXB5SQ2rQJzl6zCLbqnC3Q74VABqX0TE3gZUrMbw/exec";
 
 // Storage key prefix for localStorage persistence
 const STORAGE_KEY = "xai_study_";
@@ -66,7 +66,7 @@ const SHOPS_BASE = [
     id: "montreal", name: "Gallery Staircase", tag: "B", specialty: "pink", location: "Top of the main staircase",
     desc: "Trading post — collect free Green",
     x: 10, y: 10,
-    freePickup: { green: 2, label: "Collect 2 free Green" },
+    freePickup: { green: 2, label: "+2 free Green on first trade" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
@@ -82,7 +82,7 @@ const SHOPS_BASE = [
     id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue", location: null,
     desc: "Trading post — collect free Yellow",
     x: 95, y: 55,
-    freePickup: { yellow: 2, label: "Collect 2 free Yellow" },
+    freePickup: { yellow: 2, label: "+2 free Yellow on first trade" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
       { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
@@ -96,9 +96,9 @@ const SHOPS_BASE = [
   },
   {
     id: "computing129", name: "Computing 129", tag: "D", specialty: "yellow", location: null,
-    desc: "Trading post",
+    desc: "Trading post — collect free Green",
     x: 60, y: 75,
-    freePickup: null,
+    freePickup: { green: 1, label: "+1 free Green on first trade" },
     trades: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
       { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
@@ -115,16 +115,16 @@ const SHOPS_BASE = [
     desc: "Trading post",
     x: 35, y: 55,
     freePickup: null,
-    freePickupDisrupted: { orange: 1, label: "Collect 1 free Orange" },
+    freePickupDisrupted: { orange: 1, label: "+1 free Orange on first trade" },
     trades: [
       { give: { green: 4, yellow: 3 }, receive: { pink: 1, orange: 1 }, label: "4 Green + 3 Yellow → 1 Pink + 1 Orange" },
       { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
-      { give: { green: 3, orange: 1 }, receive: { blue: 1 }, label: "3 Green + 1 Orange → 1 Blue" },
+      { give: { green: 3 }, receive: { yellow: 2 }, label: "3 Green → 2 Yellow" },
     ],
     tradesDisrupted: [
       { give: { green: 3, yellow: 2 }, receive: { pink: 1, orange: 1 }, label: "3 Green + 2 Yellow → 1 Pink + 1 Orange" },
       { give: { yellow: 3, orange: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Orange → 1 Pink" },
-      { give: { green: 4, orange: 1 }, receive: { blue: 1 }, label: "4 Green + 1 Orange → 1 Blue" },
+      { give: { green: 3 }, receive: { yellow: 2 }, label: "3 Green → 2 Yellow" },
     ],
   },
 ];
@@ -214,11 +214,14 @@ async function submitToSheets(data) {
     return { ok: false, reason: "not_configured" };
   }
   try {
-    const res = await fetch(SHEETS_WEBHOOK, {
-      method: "POST", mode: "no-cors",
+    // Google Apps Script requires no-cors mode; response is opaque but data is received
+    await fetch(SHEETS_WEBHOOK, {
+      method: "POST",
+      mode: "no-cors",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+    // If fetch didn't throw, data was sent successfully
     return { ok: true };
   } catch (e) {
     console.error("Sheets submit error:", e);
@@ -281,16 +284,22 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
       // Skip if not enough time to walk there and trade
       if (walkTime + tradeTime > timeLeft) continue;
 
-      // Evaluate trades only — pickups are collected naturally by the player
+      // Evaluate trades — pickups auto-apply on first trade
+      const pickup = (!usedPickups.has(s.id) && getShopPickup(s, disrupted)) ? getShopPickup(s, disrupted) : null;
       for (const trade of trades) {
         if (!canAfford(current, trade.give)) continue;
-        const after = doTradeCalc(current, trade);
+        let after = doTradeCalc(current, trade);
+        // Bundle pickup into first trade at this shop
+        if (pickup) {
+          after = { ...after };
+          Object.entries(pickup).forEach(([c, n]) => { if (c !== "label") after[c] = (after[c] || 0) + n; });
+        }
         const gain = totalPoints(after) - totalPoints(current);
         if (gain <= 0) continue;
         const ppm = gain / (walkTime + tradeTime);
         if (ppm > bestScore) {
           bestScore = ppm;
-          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime };
+          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime, hasPickup: !!pickup };
         }
       }
 
@@ -300,18 +309,46 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     timeLeft -= best.totalTime;
     const timeLeftRounded = Math.round(timeLeft);
 
-    let reason;
-    const stepsText = `~${best.steps} steps`;
-    const minsText = `~${best.walkTime} min`;
-    const timeNote = timeLeftRounded <= 5 ? ` (~${timeLeftRounded} min remaining after this.)` : ``;
+    // Build explanatory reasoning for XAI group
+    const pickupNote = best.hasPickup ? ` You'll also receive bonus balls on your first trade here.` : ``;
+    const timeNote = timeLeftRounded <= 5 ? ` Time is running low — ${timeLeftRounded} min left.` : ``;
 
-    if (!prevShop) {
-      reason = `Start at ${best.shop.name} (${stepsText} from start). Trade ${best.trade.label} for +${best.gain} points.${timeNote}`;
+    // Determine why this trade was chosen — adapts to disruption state
+    let why;
+    const giveTotal = Object.entries(best.trade.give).reduce((s, [c, n]) => s + n * POINTS[c], 0);
+    const receiveTotal = Object.entries(best.trade.receive).reduce((s, [c, n]) => s + n * POINTS[c], 0);
+    const netGain = receiveTotal - giveTotal;
+
+    // Check if Purple is still viable post-disruption
+    const purpleViable = !disrupted; // pre-disruption Purple is +15, post-disruption it's break-even
+
+    if (best.trade.receive.purple) {
+      why = `This is the highest-value trade in the game. Converting your accumulated Pink and Blue into Purple is the endgame payoff.`;
+    } else if (best.trade.receive.blue && !best.trade.give.blue) {
+      if (purpleViable) {
+        why = `Building towards Blue (${POINTS.blue}pts) opens up high-value trades later, including the Purple conversion.`;
+      } else {
+        why = `Blue is worth ${POINTS.blue}pts — one of the most valuable balls. Since market changes made Purple less viable, stacking Blue is now the best strategy.`;
+      }
+    } else if (best.trade.give.blue) {
+      if (purpleViable) {
+        why = `Breaking Blue into Pink gives you more flexibility — the Pink balls are worth more combined and can be used towards Purple.`;
+      } else {
+        why = `Since market changes, breaking Blue into Pink is very profitable here. The improved rate gives you significantly more value than holding Blue.`;
+      }
+    } else if (best.hasPickup && best.gain > netGain) {
+      why = `The first-trade bonus here adds extra balls, making this trade worth more than it appears on paper.`;
+    } else if (netGain >= 7) {
+      why = `This is a high-value conversion — you gain +${netGain} points from the trade itself.`;
+    } else if (netGain >= 3) {
+      why = `A solid trade that moves your resources up the value chain efficiently.`;
+    } else if (netGain <= 0) {
+      why = `This trade looks neutral, but it converts your resources into colours needed for a more valuable trade at the next stop.`;
     } else {
-      reason = `Walk to ${best.shop.name} (${stepsText}, ${minsText} from ${prevShop.name}). ` +
-        `Trade ${best.trade.label} for +${best.gain} points. ` +
-        (best.walkTime <= 2 ? `Short walk, good value.` : best.gain >= 5 ? `Worth the distance for a high-value trade.` : `Nearby option that keeps you moving.`) + timeNote;
+      why = `A small but positive trade that keeps building towards bigger conversions.`;
     }
+
+    const reason = `${best.shop.name} — ${best.trade.label} (+${best.gain}pts). ${why}${pickupNote}${timeNote}`;
 
     routeSteps.push({
       shop: best.shop,
@@ -321,6 +358,7 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     });
     current = best.after;
     prevShop = best.shop;
+    if (best.hasPickup) usedPickups.add(best.shop.id);
   }
   return { steps: routeSteps, finalPoints: totalPoints(current), finalInv: current };
 }
@@ -641,54 +679,42 @@ export default function App() {
     }
   }, [cond, disrupted]);
 
-  // Execute trade
+  // Execute trade — auto-applies free pickup on first trade at a shop
   const executeTrade = useCallback((shop, trade) => {
     if (!canAfford(inv, trade.give)) { setMsg("You don't have enough balls for this trade."); return; }
-    const ni = doTradeCalc(inv, trade);
+    let ni = doTradeCalc(inv, trade);
+
+    // Auto-apply free pickup on first trade at this shop
+    const pickup = getShopPickup(SHOPS_BASE.find(s => s.id === shop.id), disrupted);
+    const isFirstTrade = !collectedPickups.includes(shop.id);
+    let pickupNote = "";
+    if (isFirstTrade && pickup) {
+      Object.entries(pickup).forEach(([c, n]) => {
+        if (c !== "label") ni[c] = (ni[c] || 0) + n;
+      });
+      pickupNote = ` + ${pickup.label}`;
+      setCollectedPickups((p) => [...p, shop.id]);
+    }
+
     const entry = {
       timestamp: new Date().toISOString(),
-      shop: shop.name, trade: trade.label,
+      shop: shop.name, trade: trade.label + pickupNote,
       pointsBefore: totalPoints(inv), pointsAfter: totalPoints(ni),
       condition: cond, disrupted,
       followedAI: (cond !== "human" && route && route[0]) ? (route[0].shop.id === shop.id) : null,
       timerRemaining: timer,
+      freePickupApplied: isFirstTrade && pickup ? pickup.label : null,
     };
     setInv(ni);
     setTradeLog((p) => [...p, entry]);
     setLastVisitedShop(shop);
-    setMsg(`Traded at ${shop.name}: ${trade.label}`);
+    setMsg(`Traded at ${shop.name}: ${trade.label}${pickupNote}`);
     setCurrentShop(null);
     setTradeFeedback(true);
     setTimeout(() => setTradeFeedback(false), 800);
     scrollToTop();
     recomputeRoute(ni, shop);
-  }, [inv, cond, route, timer, disrupted, recomputeRoute]);
-
-  // Collect free resources at a shop (first visit only)
-  const collectFree = useCallback((shop) => {
-    if (collectedPickups.includes(shop.id)) return;
-    const pickup = getShopPickup(SHOPS_BASE.find(s => s.id === shop.id), disrupted);
-    if (!pickup) return;
-    const ni = { ...inv };
-    Object.entries(pickup).forEach(([c, n]) => {
-      if (c !== "label") ni[c] = (ni[c] || 0) + n;
-    });
-    const entry = {
-      timestamp: new Date().toISOString(),
-      shop: shop.name, trade: pickup.label,
-      pointsBefore: totalPoints(inv), pointsAfter: totalPoints(ni),
-      condition: cond, disrupted,
-      followedAI: null,
-      timerRemaining: timer,
-    };
-    setInv(ni);
-    setTradeLog((p) => [...p, entry]);
-    setCollectedPickups((p) => [...p, shop.id]);
-    setMsg(`${pickup.label} at ${shop.name}`);
-    // Recalculate route with updated inventory but keep lastVisitedShop unchanged
-    // so the planner still considers this shop for the next trade
-    recomputeRoute(ni);
-  }, [inv, cond, timer, disrupted, collectedPickups, recomputeRoute]);
+  }, [inv, cond, route, timer, disrupted, recomputeRoute, collectedPickups]);
 
   // Build final data payload
   const buildPayload = useCallback(() => {
@@ -736,9 +762,9 @@ export default function App() {
   }, [buildPayload]);
 
   const condInfo = {
-    blackbox: { label: "Group A — Black Box AI", color: T.accent, desc: "The AI plans your full route and trades. No explanations given." },
-    xai: { label: "Group B — Explainable AI", color: T.warn, desc: "The AI plans your route with full reasoning. You may override." },
-    human: { label: "Group C — Human Control", color: T.cool, desc: "You see the map and rates. You plan everything yourself." },
+    blackbox: { label: "Group A", color: T.accent },
+    xai: { label: "Group B", color: T.warn },
+    human: { label: "Group C", color: T.cool },
   };
 
   // If URL had group, skip condition select
@@ -845,8 +871,7 @@ export default function App() {
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = T.bgAlt)}
                 onMouseLeave={(e) => (e.currentTarget.style.background = T.card)}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: T.dark, marginBottom: 4, fontFamily: mono }}>{v.label}</div>
-                <div style={{ fontSize: 14, color: T.textMuted }}>{v.desc}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.dark, fontFamily: mono }}>{v.label}</div>
               </button>
             ))}
           </div>
@@ -879,7 +904,7 @@ export default function App() {
                   </div>
                   {shop.freePickup && (
                     <div style={{ fontSize: 14, color: T.cool, fontFamily: mono, marginLeft: 36, fontWeight: 600 }}>
-                      ✦ {shop.freePickup.label} (first visit only)
+                      ✦ {shop.freePickup.label} (first trade bonus)
                     </div>
                   )}
                   {shop.trades.map((tr, i) => (
@@ -968,8 +993,6 @@ export default function App() {
                       <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
                       <div><span style={{ color: T.cool }}>▲</span> Library Pods: 4G+3Y→1P+1O now <strong>3G+2Y→1P+1O</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Library Pods: 2Y+1O→1P now <strong>3Y+1O→1P</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+1O→1B now <strong>4G+1O→1B</strong></div>
-                      <div><span style={{ color: T.cool }}>▲</span> Library Pods: <strong>NEW — Collect 1 free Orange</strong></div>
                     </div>
                     <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.7, color: T.accentAlt }}>
                       Strategy has shifted significantly. The AI has recalculated your optimal route below.
@@ -992,8 +1015,6 @@ export default function App() {
                       <div>Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
                       <div>Library Pods: 4G+3Y→1P+1O now <strong>3G+2Y→1P+1O</strong></div>
                       <div>Library Pods: 2Y+1O→1P now <strong>3Y+1O→1P</strong></div>
-                      <div>Library Pods: 3G+1O→1B now <strong>4G+1O→1B</strong></div>
-                      <div>Library Pods: <strong>NEW — Collect 1 free Orange</strong></div>
                     </div>
                   </div>
                 )}
@@ -1064,29 +1085,21 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Free pickup */}
+                {/* First trade bonus indicator */}
                 {(() => {
                   const shopData = SHOPS_BASE.find(s => s.id === currentShop.id);
                   const pickup = getShopPickup(shopData, disrupted);
                   if (!pickup) return null;
+                  const collected = collectedPickups.includes(currentShop.id);
                   return (
                   <div style={{
-                    padding: "14px 0", borderBottom: `1px solid ${T.cardBorder}44`,
+                    padding: "10px 14px", marginBottom: 10,
+                    background: collected ? `${T.textFaint}08` : `${T.cool}10`,
+                    border: `1px solid ${collected ? T.cardBorder : T.cool}33`,
+                    borderRadius: 2,
                   }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-                      <div>
-                        <div style={{ fontFamily: mono, fontSize: 14, color: collectedPickups.includes(currentShop.id) ? T.textFaint : T.cool, fontWeight: 600 }}>
-                          {pickup.label}
-                        </div>
-                        <div style={{ fontSize: 12, color: collectedPickups.includes(currentShop.id) ? T.textFaint : T.cool, fontFamily: mono, marginTop: 2 }}>
-                          {collectedPickups.includes(currentShop.id) ? "Already collected" : "Free — first visit only"}
-                        </div>
-                      </div>
-                      {!collectedPickups.includes(currentShop.id) && (
-                        <Btn small onClick={() => collectFree(currentShop)} color={T.cool}>
-                          Collect
-                        </Btn>
-                      )}
+                    <div style={{ fontFamily: mono, fontSize: 13, color: collected ? T.textFaint : T.cool, fontWeight: 600 }}>
+                      {collected ? "✓ First trade bonus collected" : `✦ ${pickup.label}`}
                     </div>
                   </div>
                   );
@@ -1153,7 +1166,7 @@ export default function App() {
                       </div>
                       {getShopPickup(shop, disrupted) && (
                         <div style={{ fontSize: 13, color: T.cool, fontFamily: mono, marginLeft: 32, fontWeight: 600 }}>
-                          ✦ {getShopPickup(shop, disrupted).label} (first visit only)
+                          ✦ {getShopPickup(shop, disrupted).label} (first trade bonus)
                         </div>
                       )}
                       {trades.map((tr, i) => (
