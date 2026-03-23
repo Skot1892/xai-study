@@ -194,7 +194,7 @@ function clearState() {
    GOOGLE SHEETS SUBMISSION
    ═══════════════════════════════════════════ */
 async function submitToSheets(data) {
-  if (SHEETS_WEBHOOK === "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyiD0VchIKy7nZfAFXB5SQ2rQJzl6zCLbqnC3Q74VABqX0TE3gZUrMbw/exec") {
+  if (SHEETS_WEBHOOK === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
     console.log("Sheets webhook not configured. Data:", data);
     return { ok: false, reason: "not_configured" };
   }
