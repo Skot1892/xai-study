@@ -57,7 +57,7 @@ const SHOPS_BASE = [
   {
     id: "montreal", name: "Gallery Staircase", tag: "B", specialty: "pink", location: "Top of the main staircase",
     desc: "Trading post — collect free Green",
-    x: 10, y: 10,
+    x: 18, y: 10,
     freePickup: { green: 2, label: "+2 free Green on first trade" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
@@ -73,7 +73,7 @@ const SHOPS_BASE = [
   {
     id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue", location: null,
     desc: "Trading post — collect free Yellow",
-    x: 95, y: 55,
+    x: 88, y: 55,
     freePickup: { yellow: 2, label: "+2 free Yellow on first trade" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
