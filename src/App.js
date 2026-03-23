@@ -62,12 +62,12 @@ const SHOPS_BASE = [
     freePickup: { green: 2, label: "+2 free Green on first trade" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
-      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { green: 3, yellow: 1 }, receive: { orange: 1 }, label: "3 Green + 1 Yellow → 1 Orange" },
       { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
     ],
     tradesDisrupted: [
       { give: { orange: 3 }, receive: { pink: 1 }, label: "3 Orange → 1 Pink" },
-      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { green: 3, yellow: 1 }, receive: { orange: 1 }, label: "3 Green + 1 Yellow → 1 Orange" },
       { give: { pink: 1, green: 1 }, receive: { orange: 3 }, label: "1 Pink + 1 Green → 3 Orange" },
     ],
   },
@@ -256,7 +256,8 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec,
   // Brute-force search (~0.4M paths, <200ms)
   function search(current, prevShop, pickups, usedTrades, path, tl) {
     const pts = totalPoints(current);
-    if (pts > bestScore) {
+    // Prefer higher score; tiebreak: fewer steps = cleaner route
+    if (pts > bestScore || (pts === bestScore && path.length < bestPath.length)) {
       bestScore = pts;
       bestPath = [...path];
     }
@@ -706,7 +707,15 @@ export default function App() {
     setTradeFeedback(true);
     setTimeout(() => setTradeFeedback(false), 800);
     scrollToTop();
-    recomputeRoute(ni, shop, updatedUsedTrades);
+
+    // If player followed the AI suggestion, advance the existing route
+    // Only do a full replan if they overrode or route is empty
+    const followedAI = route && route[0] && route[0].shop.id === shop.id && route[0].trade.label === trade.label;
+    if (followedAI && route.length > 1) {
+      setRoute(route.slice(1));
+    } else {
+      recomputeRoute(ni, shop, updatedUsedTrades);
+    }
   }, [inv, cond, route, timer, disrupted, recomputeRoute, collectedPickups, usedTrades, tradeLog]);
 
   // Build final data payload
