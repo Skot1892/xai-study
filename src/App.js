@@ -29,7 +29,7 @@ const COLOR_HEX = { green: "#5a8a5e", yellow: "#d4a843", orange: "#d4783a", pink
 const POINTS = { green: 1, yellow: 3, orange: 6, pink: 15, blue: 30, purple: 90 };
 const START_INV = { green: 5, yellow: 5, orange: 3, pink: 1, blue: 0, purple: 0 };
 const GAME_DURATION = 30 * 60;
-const DISRUPTION_TIME = 15 * 60;
+const DISRUPTION_TIME = 12 * 60;
 
 /* ═══════════════════════════════════════════
    CAMPUS CONFIGURATION
@@ -47,53 +47,57 @@ const STEPS_PER_MIN = 100;
 
 const SHOPS_BASE = [
   {
-    id: "gallery", name: "Gallery", tag: "A", specialty: "green",
+    id: "gallery", name: "Gallery", tag: "A", specialty: "green", location: "Entrance hall",
     desc: "Trading post",
-    x: 75, y: 15,
+    x: 25, y: 30,
     freePickup: null,
     trades: [
       { give: { green: 3 }, receive: { orange: 1 }, label: "3 Green → 1 Orange" },
-      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { yellow: 2, green: 2 }, receive: { pink: 1 }, label: "2 Yellow + 2 Green → 1 Pink" },
       { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
     ],
     tradesDisrupted: [
       { give: { green: 2 }, receive: { orange: 1 }, label: "2 Green → 1 Orange" },
-      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
-      { give: { blue: 1 }, receive: { pink: 2, yellow: 1 }, label: "1 Blue → 2 Pink + 1 Yellow" },
+      { give: { yellow: 3, green: 2 }, receive: { pink: 1 }, label: "3 Yellow + 2 Green → 1 Pink" },
+      { give: { blue: 1 }, receive: { pink: 3, yellow: 1 }, label: "1 Blue → 3 Pink + 1 Yellow" },
     ],
   },
   {
-    id: "montreal", name: "Montreal Building", tag: "B", specialty: "pink",
+    id: "montreal", name: "Gallery Staircase", tag: "B", specialty: "pink", location: "Top of the main staircase",
     desc: "Trading post — collect free Green",
-    x: 25, y: 30,
+    x: 10, y: 10,
     freePickup: { green: 2, label: "Collect 2 free Green" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
+      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
       { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
     ],
     tradesDisrupted: [
       { give: { orange: 3 }, receive: { pink: 1 }, label: "3 Orange → 1 Pink" },
-      { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
+      { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
+      { give: { pink: 1, green: 1 }, receive: { orange: 3 }, label: "1 Pink + 1 Green → 3 Orange" },
     ],
   },
   {
-    id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue",
+    id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue", location: null,
     desc: "Trading post — collect free Yellow",
-    x: 55, y: 55,
+    x: 95, y: 55,
     freePickup: { yellow: 2, label: "Collect 2 free Yellow" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
       { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
+      { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
     tradesDisrupted: [
-      { give: { pink: 1, orange: 3 }, receive: { blue: 1 }, label: "1 Pink + 3 Orange → 1 Blue" },
-      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
+      { give: { pink: 1, orange: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange → 1 Blue" },
+      { give: { pink: 4, blue: 1 }, receive: { purple: 1 }, label: "4 Pink + 1 Blue → 1 Purple" },
+      { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
   },
   {
-    id: "computing129", name: "Computing 129", tag: "D", specialty: "yellow",
+    id: "computing129", name: "Computing 129", tag: "D", specialty: "yellow", location: null,
     desc: "Trading post",
-    x: 15, y: 75,
+    x: 60, y: 75,
     freePickup: null,
     trades: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
@@ -102,23 +106,25 @@ const SHOPS_BASE = [
     ],
     tradesDisrupted: [
       { give: { yellow: 2 }, receive: { orange: 1 }, label: "2 Yellow → 1 Orange" },
-      { give: { yellow: 3, green: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Green → 1 Pink" },
-      { give: { yellow: 3 }, receive: { pink: 1 }, label: "3 Yellow → 1 Pink" },
+      { give: { yellow: 2, green: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Green → 1 Pink" },
       { give: { pink: 1, orange: 2, yellow: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange + 2 Yellow → 1 Blue" },
     ],
   },
   {
-    id: "librarypods", name: "Library Pods", tag: "E", specialty: "orange",
+    id: "librarypods", name: "Library Pods", tag: "E", specialty: "orange", location: "Top floor of library",
     desc: "Trading post",
-    x: 85, y: 80,
+    x: 35, y: 55,
     freePickup: null,
+    freePickupDisrupted: { orange: 1, label: "Collect 1 free Orange" },
     trades: [
       { give: { green: 4, yellow: 3 }, receive: { pink: 1, orange: 1 }, label: "4 Green + 3 Yellow → 1 Pink + 1 Orange" },
       { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
+      { give: { green: 3, orange: 1 }, receive: { blue: 1 }, label: "3 Green + 1 Orange → 1 Blue" },
     ],
     tradesDisrupted: [
-      { give: { green: 5, yellow: 4 }, receive: { pink: 1, orange: 1 }, label: "5 Green + 4 Yellow → 1 Pink + 1 Orange" },
-      { give: { yellow: 2, orange: 1 }, receive: { pink: 1 }, label: "2 Yellow + 1 Orange → 1 Pink" },
+      { give: { green: 3, yellow: 2 }, receive: { pink: 1, orange: 1 }, label: "3 Green + 2 Yellow → 1 Pink + 1 Orange" },
+      { give: { yellow: 3, orange: 1 }, receive: { pink: 1 }, label: "3 Yellow + 1 Orange → 1 Pink" },
+      { give: { green: 4, orange: 1 }, receive: { blue: 1 }, label: "4 Green + 1 Orange → 1 Blue" },
     ],
   },
 ];
@@ -236,6 +242,12 @@ function getUrlPid() {
     const params = new URLSearchParams(window.location.search);
     return params.get("pid") || "";
   } catch (e) { return ""; }
+}
+
+// Get the active free pickup for a shop (some only appear post-disruption)
+function getShopPickup(shop, disrupted) {
+  if (disrupted && shop.freePickupDisrupted !== undefined) return shop.freePickupDisrupted;
+  return shop.freePickup;
 }
 
 /* ═══════════════════════════════════════════
@@ -360,13 +372,18 @@ function Btn({ children, onClick, disabled, color, full, small }) {
   );
 }
 
-function Inventory({ inv, showPoints, cond }) {
+function Inventory({ inv, showPoints, cond, flash }) {
   const pts = totalPoints(inv);
   const showTotal = showPoints && cond === "xai";
   return (
-    <div style={cardStyle}>
+    <div style={{
+      ...cardStyle,
+      transition: "all 0.3s ease",
+      boxShadow: flash ? `0 0 0 3px ${T.cool}66` : "none",
+      borderColor: flash ? T.cool : T.cardBorder,
+    }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-        <div style={labelStyle}>Your Collection</div>
+        <div style={labelStyle}>Your Collection {flash && <span style={{ color: T.cool, fontSize: 11 }}>✓ Updated</span>}</div>
         {showTotal && <Tag color={T.warn}>{pts} points</Tag>}
       </div>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -546,10 +563,16 @@ export default function App() {
   const [collectedPickups, setCollectedPickups] = useState(() => loadState("collectedPickups", []));
   const [showDisruptionAlert, setShowDisruptionAlert] = useState(false);
   const [msg, setMsg] = useState("");
-  const [submitStatus, setSubmitStatus] = useState(null); // null | "sending" | "sent" | "error"
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [tradeFeedback, setTradeFeedback] = useState(false);
   const timerRef = useRef(null);
-  // Track the real start time so timer survives refresh
   const [startedAt, setStartedAt] = useState(() => loadState("startedAt", null));
+
+  // Scroll to top helper
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // Auto-scroll on phase change
+  useEffect(() => { scrollToTop(); }, [phase]);
 
   // Persist state on every change
   useEffect(() => { saveState("phase", phase); }, [phase]);
@@ -635,13 +658,16 @@ export default function App() {
     setLastVisitedShop(shop);
     setMsg(`Traded at ${shop.name}: ${trade.label}`);
     setCurrentShop(null);
+    setTradeFeedback(true);
+    setTimeout(() => setTradeFeedback(false), 800);
+    scrollToTop();
     recomputeRoute(ni, shop);
   }, [inv, cond, route, timer, disrupted, recomputeRoute]);
 
   // Collect free resources at a shop (first visit only)
   const collectFree = useCallback((shop) => {
     if (collectedPickups.includes(shop.id)) return;
-    const pickup = SHOPS_BASE.find(s => s.id === shop.id)?.freePickup;
+    const pickup = getShopPickup(SHOPS_BASE.find(s => s.id === shop.id), disrupted);
     if (!pickup) return;
     const ni = { ...inv };
     Object.entries(pickup).forEach(([c, n]) => {
@@ -658,10 +684,11 @@ export default function App() {
     setInv(ni);
     setTradeLog((p) => [...p, entry]);
     setCollectedPickups((p) => [...p, shop.id]);
-    setLastVisitedShop(shop);
     setMsg(`${pickup.label} at ${shop.name}`);
-    recomputeRoute(ni, shop);
-  }, [inv, cond, timer, disrupted, recomputeRoute, collectedPickups]);
+    // Recalculate route with updated inventory but keep lastVisitedShop unchanged
+    // so the planner still considers this shop for the next trade
+    recomputeRoute(ni);
+  }, [inv, cond, timer, disrupted, collectedPickups, recomputeRoute]);
 
   // Build final data payload
   const buildPayload = useCallback(() => {
@@ -899,7 +926,7 @@ export default function App() {
               {disrupted && <Tag color={T.danger}>Market Disrupted</Tag>}
             </div>
 
-            <Inventory inv={inv} showPoints cond={cond} />
+            <Inventory inv={inv} showPoints cond={cond} flash={tradeFeedback} />
 
             {msg && (
               <div style={{
@@ -929,13 +956,20 @@ export default function App() {
                       <strong style={{ color: T.danger }}> worse</strong> and some are
                       <strong style={{ color: T.cool }}> better</strong>.
                     </p>
-                    <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 2, color: T.dark }}>
+                    <div style={{ fontFamily: mono, fontSize: 11, lineHeight: 2.2, color: T.dark }}>
                       <div><span style={{ color: T.cool }}>▲</span> Gallery: 3G→1O now <strong>2G→1O</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
-                      <div><span style={{ color: T.cool }}>▲</span> Computing 129: NEW trade — <strong>3Y→1P</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Gallery: 2Y+2G→1P now <strong>3Y+2G→1P</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Gallery: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Gallery Staircase: 2O→1P now <strong>3O→1P</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Gallery Staircase: 1P+1G→2O now <strong>1P+1G→3O</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Starbucks: 1P+2O→1B now <strong>1P+1O→1B</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Starbucks: 3P+1B→1Pu now <strong>4P+1B→1Pu</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Computing 129: 3Y+1G→1P now <strong>2Y+1G→1P</strong></div>
                       <div><span style={{ color: T.danger }}>▼</span> Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
-                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 4G+3Y→1P+1O now <strong>5G+4Y→1P+1O</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Library Pods: 4G+3Y→1P+1O now <strong>3G+2Y→1P+1O</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 2Y+1O→1P now <strong>3Y+1O→1P</strong></div>
+                      <div><span style={{ color: T.danger }}>▼</span> Library Pods: 3G+1O→1B now <strong>4G+1O→1B</strong></div>
+                      <div><span style={{ color: T.cool }}>▲</span> Library Pods: <strong>NEW — Collect 1 free Orange</strong></div>
                     </div>
                     <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.7, color: T.accentAlt }}>
                       Strategy has shifted significantly. The AI has recalculated your optimal route below.
@@ -946,13 +980,20 @@ export default function App() {
                     <p style={{ margin: "0 0 8px", fontSize: 14, lineHeight: 1.7 }}>
                       Trade rates have changed at multiple shops.
                     </p>
-                    <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 2, color: T.dark }}>
+                    <div style={{ fontFamily: mono, fontSize: 11, lineHeight: 2.2, color: T.dark }}>
                       <div>Gallery: 3G→1O now <strong>2G→1O</strong></div>
-                      <div>Montreal Building: 2O→1P now <strong>3O→1P</strong></div>
-                      <div>Starbucks: 1P+2O→1B now <strong>1P+3O→1B</strong></div>
-                      <div>Computing 129: NEW trade — <strong>3Y→1P</strong></div>
+                      <div>Gallery: 2Y+2G→1P now <strong>3Y+2G→1P</strong></div>
+                      <div>Gallery: 1B→2P+1Y now <strong>1B→3P+1Y</strong></div>
+                      <div>Gallery Staircase: 2O→1P now <strong>3O→1P</strong></div>
+                      <div>Gallery Staircase: 1P+1G→2O now <strong>1P+1G→3O</strong></div>
+                      <div>Starbucks: 1P+2O→1B now <strong>1P+1O→1B</strong></div>
+                      <div>Starbucks: 3P+1B→1Pu now <strong>4P+1B→1Pu</strong></div>
+                      <div>Computing 129: 3Y+1G→1P now <strong>2Y+1G→1P</strong></div>
                       <div>Computing 129: 1P+1O+2Y→1B now <strong>1P+2O+2Y→1B</strong></div>
-                      <div>Library Pods: 4G+3Y→1P+1O now <strong>5G+4Y→1P+1O</strong></div>
+                      <div>Library Pods: 4G+3Y→1P+1O now <strong>3G+2Y→1P+1O</strong></div>
+                      <div>Library Pods: 2Y+1O→1P now <strong>3Y+1O→1P</strong></div>
+                      <div>Library Pods: 3G+1O→1B now <strong>4G+1O→1B</strong></div>
+                      <div>Library Pods: <strong>NEW — Collect 1 free Orange</strong></div>
                     </div>
                   </div>
                 )}
@@ -1017,19 +1058,25 @@ export default function App() {
                   }}>{currentShop.tag}</span>
                   <div>
                     <div style={{ fontWeight: 700, color: T.dark, fontSize: 17 }}>{currentShop.name}</div>
-                    <div style={{ fontSize: 13, color: T.textMuted }}>{currentShop.desc}</div>
+                    {currentShop.location && (
+                      <div style={{ fontSize: 13, color: T.accent, fontFamily: mono, marginTop: 2 }}>📍 {currentShop.location}</div>
+                    )}
                   </div>
                 </div>
 
                 {/* Free pickup */}
-                {SHOPS_BASE.find(s => s.id === currentShop.id)?.freePickup && (
+                {(() => {
+                  const shopData = SHOPS_BASE.find(s => s.id === currentShop.id);
+                  const pickup = getShopPickup(shopData, disrupted);
+                  if (!pickup) return null;
+                  return (
                   <div style={{
                     padding: "14px 0", borderBottom: `1px solid ${T.cardBorder}44`,
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                       <div>
                         <div style={{ fontFamily: mono, fontSize: 14, color: collectedPickups.includes(currentShop.id) ? T.textFaint : T.cool, fontWeight: 600 }}>
-                          {SHOPS_BASE.find(s => s.id === currentShop.id).freePickup.label}
+                          {pickup.label}
                         </div>
                         <div style={{ fontSize: 12, color: collectedPickups.includes(currentShop.id) ? T.textFaint : T.cool, fontFamily: mono, marginTop: 2 }}>
                           {collectedPickups.includes(currentShop.id) ? "Already collected" : "Free — first visit only"}
@@ -1042,7 +1089,8 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
                 {((disrupted && SHOPS_BASE.find(s => s.id === currentShop.id).tradesDisrupted)
                   ? SHOPS_BASE.find(s => s.id === currentShop.id).tradesDisrupted
@@ -1103,9 +1151,9 @@ export default function App() {
                         <span style={{ fontWeight: 700, color: T.dark, fontSize: 14 }}>{shop.name}</span>
                         <Ball color={shop.specialty} size={12} />
                       </div>
-                      {shop.freePickup && (
+                      {getShopPickup(shop, disrupted) && (
                         <div style={{ fontSize: 13, color: T.cool, fontFamily: mono, marginLeft: 32, fontWeight: 600 }}>
-                          ✦ {shop.freePickup.label} (first visit only)
+                          ✦ {getShopPickup(shop, disrupted).label} (first visit only)
                         </div>
                       )}
                       {trades.map((tr, i) => (
