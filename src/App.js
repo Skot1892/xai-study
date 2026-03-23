@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 /* ═══════════════════════════════════════════
-   CONFIG
+   CONFIG — Update these before deploying
    ═══════════════════════════════════════════ */
-// Replace with your Google Apps Script web app URL after setup
-const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyiD0VchIKy7nZfAFXB5SQ2rQJzl6zCLbqnC3Q74VABqX0TE3gZUrMbw/exec";
+const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbwQFhW2urYdyC9Wk_OOVbJ5AaYnpRufz6hX_AbKnmicICFznHYpfvGiTVW1mUF6I-fd2A/exec";
 
 // Storage key prefix for localStorage persistence
 const STORAGE_KEY = "xai_study_";
@@ -33,8 +32,7 @@ const DISRUPTION_TIME = 12 * 60;
 
 /* ═══════════════════════════════════════════
    CAMPUS CONFIGURATION
-   ═══════════════════════════════════════════
- */
+   ═══════════════════════════════════════════ */
 
 // Average steps per minute (normal walking pace ~100 steps/min)
 const STEPS_PER_MIN = 100;
@@ -125,8 +123,7 @@ const SHOPS_BASE = [
 
 /* ═══════════════════════════════════════════
    DISTANCE MATRIX (in steps)
-   ═══════════════════════════════════════════
-*/
+   ═══════════════════════════════════════════ */
 const DISTANCES = {
   "start→gallery":     250,
   "start→montreal":     280,
@@ -176,8 +173,6 @@ function doTradeCalc(inv, trade) {
 
 /* ═══════════════════════════════════════════
    PERSISTENCE — localStorage wrappers
-   In Claude artifact: these silently no-op.
-   Once deployed: full persistence.
    ═══════════════════════════════════════════ */
 function saveState(key, value) {
   try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(value)); } catch (e) { /* no-op in artifact */ }
@@ -535,25 +530,26 @@ const LIKERT_QUESTIONS = [
   { id: "control", dim: "Control", text: "I felt in control of my decisions throughout the game." },
   { id: "satisfaction", dim: "Satisfaction", text: "I am satisfied with my final score." },
   { id: "cognitive_load", dim: "Cognitive Load", text: "I found it mentally demanding to decide which trades to make." },
+  { id: "optimality", dim: "Calibration", text: "I believe the route I took maximised my final score." },
   { id: "willingness", dim: "Willingness", text: "I would be comfortable relying on a similar system for important decisions in the future." },
 ];
 
 const MULTI_CHOICE_QUESTIONS_AI = [
   { id: "emotion_during", dim: "Emotional", text: "Which best describes how you felt during the game?",
     options: ["Confident", "Uncertain", "Frustrated", "Calm", "Overwhelmed"], multi: true },
-  { id: "emotion_disruption", dim: "Emotional", text: "How did you feel when the trade rates changed at 15 minutes?",
+  { id: "emotion_disruption", dim: "Emotional", text: "How did you feel when the trade rates changed at 12 minutes?",
     options: ["Stressed", "Curious", "Confused", "Unfazed", "Panicked"], multi: true },
-  { id: "predictability", dim: "Understanding", text: "How well could you predict what the AI would suggest next?",
-    options: ["Very well", "Somewhat", "Not really", "Not at all"], multi: false },
+  { id: "clarity", dim: "Understanding", text: "How clear was it to you why each trade was being recommended?",
+    options: ["Very clear", "Somewhat clear", "Not very clear", "Not at all clear"], multi: false },
 ];
 
 const MULTI_CHOICE_QUESTIONS_HUMAN = [
   { id: "emotion_during", dim: "Emotional", text: "Which best describes how you felt during the game?",
     options: ["Confident", "Uncertain", "Frustrated", "Calm", "Overwhelmed"], multi: true },
-  { id: "emotion_disruption", dim: "Emotional", text: "How did you feel when the trade rates changed at 15 minutes?",
+  { id: "emotion_disruption", dim: "Emotional", text: "How did you feel when the trade rates changed at 12 minutes?",
     options: ["Stressed", "Curious", "Confused", "Unfazed", "Panicked"], multi: true },
-  { id: "predictability", dim: "Understanding", text: "How well could you plan your next move?",
-    options: ["Very well", "Somewhat", "Not really", "Not at all"], multi: false },
+  { id: "clarity", dim: "Understanding", text: "How clear was your overall strategy throughout the game?",
+    options: ["Very clear", "Somewhat clear", "Not very clear", "Not at all clear"], multi: false },
 ];
 
 const FREE_TEXT_QUESTIONS_AI = [
