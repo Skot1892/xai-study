@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 /* ═══════════════════════════════════════════
-   CONFIG — Update these before deploying
+   CONFIG
    ═══════════════════════════════════════════ */
-const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbwQFhW2urYdyC9Wk_OOVbJ5AaYnpRufz6hX_AbKnmicICFznHYpfvGiTVW1mUF6I-fd2A/exec";
+const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyiD0VchIKy7nZfAFXB5SQ2rQJzl6zCLbqnC3Q74VABqX0TE3gZUrMbw/exec";
 
 // Storage key prefix for localStorage persistence
 const STORAGE_KEY = "xai_study_";
@@ -32,7 +32,8 @@ const DISRUPTION_TIME = 12 * 60;
 
 /* ═══════════════════════════════════════════
    CAMPUS CONFIGURATION
-   ═══════════════════════════════════════════ */
+   ═══════════════════════════════════════════
+*/
 
 // Average steps per minute (normal walking pace ~100 steps/min)
 const STEPS_PER_MIN = 100;
@@ -173,6 +174,8 @@ function doTradeCalc(inv, trade) {
 
 /* ═══════════════════════════════════════════
    PERSISTENCE — localStorage wrappers
+   In Claude artifact: these silently no-op.
+   Once deployed: full persistence.
    ═══════════════════════════════════════════ */
 function saveState(key, value) {
   try { localStorage.setItem(STORAGE_KEY + key, JSON.stringify(value)); } catch (e) { /* no-op in artifact */ }
@@ -248,6 +251,9 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
   let current = { ...inv };
   let prevShop = lastShop || null;
   const usedPickups = new Set(collected || []);
+  const usedTrades = new Set(); // track shop:trade combos to prevent repeats
+  const visitedShops = new Set();
+  if (prevShop) visitedShops.add(prevShop.id);
   let timeLeft = (timeRemainingSec || GAME_DURATION) / 60; // convert to minutes
 
   for (let i = 0; i < 12; i++) {
@@ -255,6 +261,8 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
 
     let best = null;
     let bestScore = -Infinity;
+    const allVisited = shops.every(s => visitedShops.has(s.id));
+
     for (const s of shops) {
       // Skip same shop as previous step
       if (prevShop && s.id === prevShop.id) continue;
@@ -271,6 +279,10 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
       // Evaluate trades — pickups auto-apply on first trade
       const pickup = (!usedPickups.has(s.id) && getShopPickup(s, disrupted)) ? getShopPickup(s, disrupted) : null;
       for (const trade of trades) {
+        // Skip trades already used at this shop
+        const tradeKey = `${s.id}:${trade.label}`;
+        if (usedTrades.has(tradeKey)) continue;
+
         if (!canAfford(current, trade.give)) continue;
         let after = doTradeCalc(current, trade);
         // Bundle pickup into first trade at this shop
@@ -280,10 +292,16 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
         }
         const gain = totalPoints(after) - totalPoints(current);
         if (gain <= 0) continue;
-        const ppm = gain / (walkTime + tradeTime);
+        let ppm = gain / (walkTime + tradeTime);
+
+        // Boost unvisited shops to ensure all 5 get visited
+        if (!allVisited && !visitedShops.has(s.id)) {
+          ppm *= 1.8;
+        }
+
         if (ppm > bestScore) {
           bestScore = ppm;
-          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime, hasPickup: !!pickup };
+          best = { shop: s, trade, gain, after, steps, walkTime: Math.round(walkTime), totalTime: walkTime + tradeTime, hasPickup: !!pickup, tradeKey };
         }
       }
 
@@ -342,6 +360,8 @@ function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec)
     });
     current = best.after;
     prevShop = best.shop;
+    visitedShops.add(best.shop.id);
+    usedTrades.add(best.tradeKey);
     if (best.hasPickup) usedPickups.add(best.shop.id);
   }
   return { steps: routeSteps, finalPoints: totalPoints(current), finalInv: current };
