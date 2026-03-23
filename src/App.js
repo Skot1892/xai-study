@@ -33,7 +33,7 @@ const DISRUPTION_TIME = 12 * 60;
 /* ═══════════════════════════════════════════
    CAMPUS CONFIGURATION
    ═══════════════════════════════════════════
-*/
+ */
 
 // Average steps per minute (normal walking pace ~100 steps/min)
 const STEPS_PER_MIN = 100;
@@ -246,14 +246,32 @@ function getShopPickup(shop, disrupted) {
    raw point gain. Factors in walk time to
    each shop from current position.
    ═══════════════════════════════════════════ */
-function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec) {
+function planRoute(inv, shops, disrupted, lastShop, collected, timeRemainingSec, tradeHistory) {
   const routeSteps = [];
   let current = { ...inv };
   let prevShop = lastShop || null;
   const usedPickups = new Set(collected || []);
-  const usedTrades = new Set(); // track shop:trade combos to prevent repeats
+  
+  // Pre-populate visited shops and used trades from actual trade history
+  const usedTrades = new Set();
   const visitedShops = new Set();
   if (prevShop) visitedShops.add(prevShop.id);
+  if (tradeHistory && tradeHistory.length > 0) {
+    for (const entry of tradeHistory) {
+      // Match shop name to ID
+      const shop = shops.find(s => s.name === entry.shop || entry.shop.startsWith(s.name));
+      if (shop) {
+        visitedShops.add(shop.id);
+        // Match trade label (strip pickup notes)
+        const cleanLabel = entry.trade.split(" + +")[0].split(" +")[0];
+        const matchedTrade = [...shop.trades, ...(shop.tradesDisrupted || [])].find(t => cleanLabel.includes(t.label) || t.label === cleanLabel);
+        if (matchedTrade) {
+          usedTrades.add(`${shop.id}:${matchedTrade.label}`);
+        }
+      }
+    }
+  }
+  
   let timeLeft = (timeRemainingSec || GAME_DURATION) / 60; // convert to minutes
 
   for (let i = 0; i < 12; i++) {
@@ -671,12 +689,12 @@ export default function App() {
   const [lastVisitedShop, setLastVisitedShop] = useState(null);
 
   // Compute route for AI groups
-  const recomputeRoute = useCallback((newInv, fromShop) => {
+  const recomputeRoute = useCallback((newInv, fromShop, updatedTradeLog) => {
     if (cond === "blackbox" || cond === "xai") {
-      const plan = planRoute(newInv || inv, SHOPS_BASE, disrupted, fromShop || lastVisitedShop, collectedPickups, timer);
+      const plan = planRoute(newInv || inv, SHOPS_BASE, disrupted, fromShop || lastVisitedShop, collectedPickups, timer, updatedTradeLog || tradeLog);
       setRoute(plan.steps);
     }
-  }, [cond, disrupted, inv, lastVisitedShop, collectedPickups, timer]);
+  }, [cond, disrupted, inv, lastVisitedShop, collectedPickups, timer, tradeLog]);
 
   useEffect(() => {
     if (cond && (cond === "blackbox" || cond === "xai")) {
@@ -711,14 +729,15 @@ export default function App() {
       freePickupApplied: isFirstTrade && pickup ? pickup.label : null,
     };
     setInv(ni);
-    setTradeLog((p) => [...p, entry]);
+    const updatedLog = [...tradeLog, entry];
+    setTradeLog(updatedLog);
     setLastVisitedShop(shop);
     setMsg(`Traded at ${shop.name}: ${trade.label}${pickupNote}`);
     setCurrentShop(null);
     setTradeFeedback(true);
     setTimeout(() => setTradeFeedback(false), 800);
     scrollToTop();
-    recomputeRoute(ni, shop);
+    recomputeRoute(ni, shop, updatedLog);
   }, [inv, cond, route, timer, disrupted, recomputeRoute, collectedPickups]);
 
   // Build final data payload
