@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 /* ═══════════════════════════════════════════
-   CONFIG — Update these before deploying
+   CONFIG
    ═══════════════════════════════════════════ */
 // Replace with your Google Apps Script web app URL after setup
 const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyiD0VchIKy7nZfAFXB5SQ2rQJzl6zCLbqnC3Q74VABqX0TE3gZUrMbw/exec";
@@ -10,7 +10,7 @@ const SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbzA7veSkLtnIlRyi
 const STORAGE_KEY = "xai_study_";
 
 /* ═══════════════════════════════════════════
-   THEME — Arc Raiders inspired
+   THEME
    ═══════════════════════════════════════════ */
 const T = {
   bg: "#ece2d0", bgAlt: "#e3d7c2", card: "#f5ede0", cardBorder: "#d4c8b0",
@@ -34,13 +34,7 @@ const DISRUPTION_TIME = 12 * 60;
 /* ═══════════════════════════════════════════
    CAMPUS CONFIGURATION
    ═══════════════════════════════════════════
-   University Centre, Park Road, Blackpool FY1 4ES
-   
-   UPDATE THESE with your real data:
-   1. Shop names/locations
-   2. Map x/y positions (0-100, for the in-app map display)
-   3. DISTANCES table below (in steps, measured by walking between locations)
-   ═══════════════════════════════════════════ */
+ */
 
 // Average steps per minute (normal walking pace ~100 steps/min)
 const STEPS_PER_MIN = 100;
@@ -132,28 +126,23 @@ const SHOPS_BASE = [
 /* ═══════════════════════════════════════════
    DISTANCE MATRIX (in steps)
    ═══════════════════════════════════════════
-   Measure by walking between each pair of locations.
-   "start" = where participants begin (e.g. main entrance).
-   
-   UPDATE THESE with your real step counts.
-   Only need to fill one direction — the lookup works both ways.
-   ═══════════════════════════════════════════ */
+*/
 const DISTANCES = {
-  "start→gallery":     400,
-  "start→montreal":     250,
-  "start→starbucks":  300,
-  "start→computing129":    350,
-  "start→librarypods":  500,
-  "gallery→montreal":     350,
-  "gallery→starbucks":  200,
-  "gallery→computing129":    450,
-  "gallery→librarypods":  300,
+  "start→gallery":     250,
+  "start→montreal":     280,
+  "start→starbucks":  140,
+  "start→computing129":    20,
+  "start→librarypods":  400,
+  "gallery→montreal":     30,
+  "gallery→starbucks":  150,
+  "gallery→computing129":    310,
+  "gallery→librarypods":  200,
   "montreal→starbucks":  250,
-  "montreal→computing129":    200,
-  "montreal→librarypods":  400,
-  "starbucks→computing129":  300,
+  "montreal→computing129":    330,
+  "montreal→librarypods":  130,
+  "starbucks→computing129":  160,
   "starbucks→librarypods": 250,
-  "computing129→librarypods":  350,
+  "computing129→librarypods":  420,
 };
 
 // Lookup steps between two shops (works in either direction)
