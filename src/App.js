@@ -58,32 +58,32 @@ const SHOPS_BASE = [
   {
     id: "montreal", name: "Gallery Staircase", tag: "B", specialty: "pink", location: "Top of the main staircase",
     desc: "Trading post — collect free Green",
-    x: 10, y: 10,
+    x: 18, y: 10,
     freePickup: { green: 1, label: "+1 free Green on first trade" },
     trades: [
       { give: { orange: 2 }, receive: { pink: 1 }, label: "2 Orange → 1 Pink" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
-      { give: { pink: 2, blue: 1 }, receive: { purple: 1 }, label: "2 Pink + 1 Blue → 1 Purple" },
       { give: { pink: 1, green: 1 }, receive: { orange: 2 }, label: "1 Pink + 1 Green → 2 Orange" },
     ],
     tradesDisrupted: [
       { give: { orange: 3 }, receive: { pink: 1 }, label: "3 Orange → 1 Pink" },
       { give: { green: 2, yellow: 1 }, receive: { orange: 1 }, label: "2 Green + 1 Yellow → 1 Orange" },
-      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },
       { give: { pink: 1, green: 1 }, receive: { orange: 3 }, label: "1 Pink + 1 Green → 3 Orange" },
     ],
   },
   {
     id: "starbucks", name: "Starbucks", tag: "C", specialty: "blue", location: null,
     desc: "Trading post — collect free Yellow",
-    x: 95, y: 55,
+    x: 88, y: 55,
     freePickup: { yellow: 1, label: "+1 free Yellow on first trade" },
     trades: [
       { give: { pink: 1, orange: 2 }, receive: { blue: 1 }, label: "1 Pink + 2 Orange → 1 Blue" },
+      { give: { pink: 2, blue: 1 }, receive: { purple: 1 }, label: "2 Pink + 1 Blue → 1 Purple" },      
       { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
     tradesDisrupted: [
       { give: { pink: 1, orange: 1 }, receive: { blue: 1 }, label: "1 Pink + 1 Orange → 1 Blue" },
+      { give: { pink: 3, blue: 1 }, receive: { purple: 1 }, label: "3 Pink + 1 Blue → 1 Purple" },      
       { give: { orange: 1, yellow: 1 }, receive: { green: 3 }, label: "1 Orange + 1 Yellow → 3 Green" },
     ],
   },
